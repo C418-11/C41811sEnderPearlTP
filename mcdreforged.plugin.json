@@ -1,0 +1,16 @@
+{
+  "id": "custom_teleport",
+  "name": "Custom Teleport",
+  "archive_name": "Custom Teleport",
+  "description": {
+    "zh_cn": "高度自定义的传送插件",
+    "en_us": "A highly customizable teleport plugin"
+  },
+  "version": "0.0.1",
+  "author": "C418____11",
+  "link": "https://github.com/C418-11/CustomTeleport",
+  "dependencies": {
+    "online_player_api": "*",
+    "minecraft_data_api": "*"
+  }
+}

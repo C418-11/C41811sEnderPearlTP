@@ -1,0 +1,43 @@
+custom_teleport:
+  help:
+    help: 显示该插件的帮助信息
+    teleport: 传送到指定目标
+    usage:
+      to_player: §7传送到玩家：§b!!tp <玩家名>§r
+      to_location: §7传送到坐标：§b!!tp <x> <y> <z>§r
+      to_waypoint: §7传送到路径点：§b!!tp <路径点>§r
+      to_home: §7传送到家：§b!!tp [家]§r
+
+  unit:
+    experience:
+      points: 经验点
+      level: 级
+
+  message:
+    failure:
+      argument:
+        not_found:
+          home: 未记录的家
+          player: 不在线的玩家
+          waypoint: 不存在的路径点
+      cost:
+        # 可用价值 {available}
+        # 需求价值 {required}
+        items: §c物品不足§r：§7可用价值 §6{available}§7，§c需求价值 §6{required}§r
+        experience: §c经验不足§r：§7可用{strategy} §6{available}§7，§c需求{strategy} §6{required}§r
+      no_permission: §c权限不足§r
+      not_player: §c只有玩家可以执行此命令！§r
+      tp_self: §c你不能传送到你自己！§r
+      unknown: §c未知错误！§r
+    success:
+      to_home: §a成功传送至家§r
+      to_home_with_name: §a成功传送至家：§6{target}§r
+      to_location: §a成功传送至坐标 §6{x} {y} {z}§r
+      to_player: |
+        [ "§a成功传送至玩家", {{ type: "selector", text: "",  selector: "{target}" }}]
+      to_waypoint: §a成功传送至路径点 §6{target}§r
+      cost: §7消耗了 §6{cost}§r
+
+  log:
+    debug:
+      cost-command: 消耗命令：§6{commands}§r
