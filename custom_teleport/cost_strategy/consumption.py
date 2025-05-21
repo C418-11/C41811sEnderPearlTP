@@ -7,8 +7,6 @@ from abc import ABC
 from abc import abstractmethod
 from collections import defaultdict
 from collections.abc import Callable
-from collections.abc import Mapping
-from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
 from decimal import Decimal
@@ -17,181 +15,12 @@ from enum import StrEnum
 from functools import partial
 from typing import Any
 
-from .plugins_api import Item
-from .plugins_api import ResourceState
-from .plugins_api import Vec3
-
-type Command = str
-
-
-# --------------------------
-# 距离计算模块
-# --------------------------
-@dataclass
-class DistanceCalculator(ABC):
-    """
-    距离计算器
-    """
-
-    min_distance: float = field(default=float("-inf"))
-    """
-    最小距离
-    """
-    max_distance: float = field(default=float("inf"))
-    """
-    最大距离
-    """
-    scale: float = field(default=1)
-    """
-    缩放比例
-    """
-
-    @abstractmethod
-    def calculate(self, from_coordinate: Vec3, to_coordinate: Vec3) -> float:
-        """
-        计算距离
-
-        :param from_coordinate: 起点
-        :type from_coordinate: Vec3
-        :param to_coordinate: 终点
-        :type to_coordinate: Vec3
-
-        :return: 距离
-        :rtype: float
-        """
+from .utils import Command
+from .utils import Item
+from .utils import ResourceState
+from .utils import get_params
 
 
-def _limit_value(val: float, min_val: float, max_val: float, scale: float = 1) -> float:
-    """
-    限制值的范围
-
-    :param val: 值
-    :type val: float
-    :param min_val: 最小值
-    :type min_val: float
-    :param max_val: 最大值
-    :type max_val: float
-    :param scale: 缩放比例
-    :type scale: float
-
-    :return: 限制后的值
-    :rtype: float
-    """
-    return max(min_val, min(max_val, val * scale))
-
-
-class EuclideanDistance(DistanceCalculator):
-    """
-    欧几里得距离计算器
-    """
-
-    def calculate(self, from_coordinate: Vec3, to_coordinate: Vec3) -> float:
-        return _limit_value(math.sqrt(
-            (from_coordinate.x - to_coordinate.x) ** 2 +
-            (from_coordinate.y - to_coordinate.y) ** 2 +
-            (from_coordinate.z - to_coordinate.z) ** 2
-        ), self.min_distance, self.max_distance, self.scale)
-
-
-class ManhattanDistance(DistanceCalculator):
-    """
-    曼哈顿距离计算器
-    """
-
-    def calculate(self, from_coordinate: Vec3, to_coordinate: Vec3) -> float:
-        return _limit_value((
-                abs(from_coordinate.x - to_coordinate.x) +
-                abs(from_coordinate.y - to_coordinate.y) +
-                abs(from_coordinate.z - to_coordinate.z)
-        ), self.min_distance, self.max_distance, self.scale)
-
-
-class ChebyshevDistance(DistanceCalculator):
-    """
-    切比雪夫距离计算器
-    """
-
-    def calculate(self, from_coordinate: Vec3, to_coordinate: Vec3) -> float:
-        return _limit_value(max(
-            abs(from_coordinate.x - to_coordinate.x),
-            abs(from_coordinate.y - to_coordinate.y),
-            abs(from_coordinate.z - to_coordinate.z)
-        ), self.min_distance, self.max_distance, self.scale)
-
-
-DISTANCE_TYPES: dict[str, type[DistanceCalculator]] = {
-    "euclidean": EuclideanDistance,
-    "manhattan": ManhattanDistance,
-    "chebyshev": ChebyshevDistance
-}
-
-
-# --------------------------
-# 消耗计算模块
-# --------------------------
-@dataclass
-class CostCalculator(ABC):
-    """
-    消耗计算器
-    """
-
-    min_cost: float = field(default=float("-inf"))
-    """
-    最低消耗
-    """
-    max_cost: float = field(default=float("inf"))
-    """
-    最高消耗
-    """
-    scale: float = field(default=1)
-    """
-    消耗缩放
-    """
-
-    @abstractmethod
-    def compute(self, distance: float) -> float:
-        """
-        计算消耗
-
-        :param distance: 距离
-        :type distance: float
-
-        :return: 消耗
-        :rtype: float
-        """
-
-
-@dataclass
-class LinearCost(CostCalculator):
-    """
-    线性消耗计算器
-    """
-    base: float = field(default=1)
-
-    def compute(self, distance: float) -> float:
-        return _limit_value(self.base + distance * self.scale, self.min_cost, self.max_cost)
-
-
-@dataclass
-class ExponentialCost(CostCalculator):
-    """
-    指数消耗计算器
-    """
-    base: float = field(default=1.0025)
-
-    def compute(self, distance: float) -> float:
-        return _limit_value(self.base ** distance, self.min_cost, self.max_cost, self.scale)
-
-
-COST_TYPES: dict[str, type[CostCalculator]] = {
-    "linear": LinearCost,
-    "exponential": ExponentialCost
-}
-
-
-# --------------------------
-# 消耗处理模块
-# --------------------------
 class ExperienceConsumeStrategy(StrEnum):
     """
     经验消耗策略
@@ -404,7 +233,7 @@ class ItemValueCost(Cost):
     items: dict[str, float] = field(default_factory=dict)
     strategy: ItemConsumeStrategy = field(default=ItemConsumeStrategy.HIGHER_FIRST)
 
-    strategy_registry: dict[
+    strategy_handlers: dict[
         ItemConsumeStrategy, Callable[[dict[str, float], defaultdict[str, int], float], dict[str, int]]
     ] = field(
         default_factory=lambda: dict({
@@ -422,7 +251,7 @@ class ItemValueCost(Cost):
                 id_counts[item.id] += item.count
                 id_items[item.id].append(item)
 
-        strategy_func = self.strategy_registry.get(self.strategy)
+        strategy_func = self.strategy_handlers.get(self.strategy)
         if not strategy_func:
             raise ValueError(f"Unsupported strategy: {self.strategy}")
 
@@ -450,10 +279,6 @@ class ItemValueCost(Cost):
         return cost_value, commands
 
 
-def _get_params[C: dict[str, Any]](cfg: C) -> C:
-    return {k: v for k, v in cfg.items() if k != "type"}
-
-
 @dataclass
 class CompositeCost(Cost):
     """
@@ -466,7 +291,7 @@ class CompositeCost(Cost):
         costs = []
         for cost_cfg in self.costs:
             # noinspection PyArgumentList
-            costs.append(CONSUMPTION_TYPES[cost_cfg["type"]](**_get_params(cost_cfg)))
+            costs.append(CONSUMPTION_TYPES[cost_cfg["type"]](**get_params(cost_cfg)))
 
         commands = []
         for cost in costs:
@@ -488,71 +313,22 @@ CONSUMPTION_TYPES: dict[str, type[Cost]] = {
     "composite": CompositeCost,
 }
 
-# --------------------------
-# 工厂函数
-# --------------------------
-type CostStrategy = Callable[[Vec3, Vec3, ResourceState], list[Command]]
+__all__ = (
+    "ExperienceConsumeStrategy",
+    "ItemConsumeStrategy",
 
+    "InsufficientResourcesError",
+    "InsufficientExperienceError",
+    "InsufficientItemsError",
 
-def create_cost_strategy(config: Mapping[str, Any]) -> CostStrategy:
-    """
-    创建成本策略
+    "PassStrategy",
+    "CheckStrategy",
 
-    :param config: 配置信息
-    :type config: Mapping[str, Any]
+    "Cost",
+    "ExperienceCost",
+    "ItemValueCost",
 
-    :return: 成本策略
-    :rtype: CostStrategy
-    """
-    # 初始化距离计算器
-    distance_cfg = config.get("distance", {"type": "euclidean"})
-    # noinspection PyArgumentList
-    distance_calculator = DISTANCE_TYPES[distance_cfg["type"]](**_get_params(distance_cfg))
+    "CompositeCost",
 
-    # 初始化消耗计算器
-    cost_cfg = config.get("cost", {"type": "linear"})
-    # noinspection PyArgumentList
-    cost_calculator = COST_TYPES[cost_cfg["type"]](**_get_params(cost_cfg))
-
-    # 初始化消耗处理器
-    consumption_cfg = config.get("consumption", {"type": "items"})
-    # noinspection PyArgumentList
-    composite_cost = CONSUMPTION_TYPES[consumption_cfg["type"]](**_get_params(consumption_cfg))
-
-    # 构建处理函数（保持不变）
-    def calculate_commands(start: Vec3, end: Vec3, resource_state: ResourceState) -> list[Command]:
-        """
-        计算命令
-
-        :param start: 起始位置
-        :type start: Vec3
-        :param end: 终止位置
-        :type end: Vec3
-        :param resource_state: 资源状态，默认深拷贝防止意外更改
-        :type resource_state: ResourceState
-
-        :return: 命令列表
-        :rtype: list[Command]
-        """
-        distance = distance_calculator.calculate(start, end)
-        cost_value = cost_calculator.compute(distance)
-        return composite_cost.apply_cost(cost_value, deepcopy(resource_state))[1]
-
-    return calculate_commands
-
-
-# 示例配置
-SAMPLE_CONFIG = {
-    "distance": {
-        "type": "euclidean",
-    },
-    "cost": {
-        "type": "exponential",
-        "base": 2.0,
-        "scale": 0.5
-    },
-    "consumption": {
-        "type": "experience",
-        "rate": 1.2
-    },
-}
+    "CONSUMPTION_TYPES",
+)

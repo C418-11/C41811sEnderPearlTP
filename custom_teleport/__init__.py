@@ -14,8 +14,9 @@ from mcdreforged.plugin.si.plugin_server_interface import PluginServerInterface
 from .command_nodes import PermissionLiteral as PermLiteral
 from .command_nodes import PlayerName
 from .config import Config
-from .cost_strategy import Command, InsufficientExperienceError
+from .cost_strategy import Command
 from .cost_strategy import CostStrategy
+from .cost_strategy import InsufficientExperienceError
 from .cost_strategy import InsufficientItemsError
 from .helper import h
 from .helper import initialize as init_helper
