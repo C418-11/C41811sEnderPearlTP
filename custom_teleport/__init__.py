@@ -13,6 +13,7 @@ from mcdreforged.plugin.si.plugin_server_interface import PluginServerInterface
 
 from .command_nodes import PermissionLiteral as PermLiteral
 from .command_nodes import PlayerName
+from .command_nodes import permission_checker
 from .config import Config
 from .cost_strategy import Command
 from .cost_strategy import CostStrategy
@@ -78,8 +79,15 @@ def on_load(server: PluginServerInterface, _prev_module: ModuleType):
     init_api(server)
     Config.initialize()
 
-        runs(lambda src: src.reply(h.crtr("help.teleport")))
+    def _help(src: CommandSource) -> None:
+        src.reply(h.crtr("help.teleport"))
+
+        tp2player_perm = (Config.Permission or Config.TeleportToPlayer.Permission)
+        if permission_checker(tp2player_perm)[0](src):
+            src.reply(h.crtr("help.usage.to_player"))
+
     root_cmd = PermLiteral("!!tp", permission=Config.Permission). \
+        runs(_help)
 
     root_cmd.then(PlayerName("target").runs(tp2player))
 
