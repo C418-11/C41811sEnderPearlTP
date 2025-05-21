@@ -15,6 +15,7 @@ from mcdreforged.command.builder.nodes.basic import ArgumentNode
 from mcdreforged.command.builder.nodes.basic import Literal
 from mcdreforged.command.command_source import CommandSource
 from mcdreforged.permission.permission_level import PermissionLevel
+from mcdreforged.permission.permission_level import PermissionLevelItem
 from mcdreforged.permission.permission_level import PermissionParam
 
 from .helper import h
@@ -65,6 +66,18 @@ class PlayerName(DynamicEnumeration):
             raise InvalidPlayerName(value, player_name=value)
 
 
+def permission_checker(
+        permission: PermissionParam | PermissionLevelItem,
+        comparator: Callable[[int, int], bool] = operator.ge
+) -> tuple[Callable[[CommandSource], bool], Callable[[], str]]:
+    permission = permission if isinstance(permission, PermissionLevelItem) else PermissionLevel.from_value(permission)
+
+    def checker(src: CommandSource) -> bool:
+        return comparator(src.get_permission_level(), permission.level)
+
+    return checker, lambda: h.crtr("message.failure.no_permission")
+
+
 class PermissionLiteral(Literal):
     """
     权限Literal
@@ -74,26 +87,17 @@ class PermissionLiteral(Literal):
             self,
             literal: str | Iterable[str],
             *,
-            permission: PermissionParam,
+            permission: PermissionParam | PermissionLevelItem,
             comparator: Callable[[int, int], bool] = operator.ge
     ):
         super().__init__(literal)
-        self.requires(self._check_permission, self._denied_message)
-
-        self.permission = PermissionLevel.from_value(permission)
-        self.comparator = comparator
-
-    def _check_permission(self, src: CommandSource) -> bool:
-        return self.comparator(src.get_permission_level(), self.permission.level)
-
-    @staticmethod
-    def _denied_message() -> str:
-        return h.crtr("message.failure.no_permission")
+        self.requires(*permission_checker(permission, comparator))
 
 
 __all__ = (
     "InvalidPlayerName",
     "DynamicEnumeration",
     "PlayerName",
+    "permission_checker",
     "PermissionLiteral",
 )
