@@ -65,6 +65,7 @@ type MCD = MappingConfigData[dict[str, Any]]
 class Config:
     Config: MCD
 
+    Permission: PermissionLevelItem
     CostStrategy: CostStrategy
 
     class TeleportToPlayer:
@@ -88,5 +89,6 @@ class Config:
         cls.Config = PluginConfigPool.require('', f"{h.pkg_name}.yaml", DEFAULT_CONFIG).check()
         # PluginConfigPool.save_all()  # todo save
 
+        cls.Permission = cls.Config.retrieve("$global\\.permission")
         cls.CostStrategy = create_cost_strategy(cls.Config.retrieve("$global\\.cost_strategy"))
         cls.TeleportToPlayer.initialize(cls.Config.retrieve("commands\\.teleport-to-player"))

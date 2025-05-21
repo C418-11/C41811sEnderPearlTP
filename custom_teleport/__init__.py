@@ -78,8 +78,8 @@ def on_load(server: PluginServerInterface, _prev_module: ModuleType):
     init_api(server)
     Config.initialize()
 
-    root_cmd = PermLiteral("!!tp", permission=Config.Config.retrieve("$global\\.permission")). \
         runs(lambda src: src.reply(h.crtr("help.teleport")))
+    root_cmd = PermLiteral("!!tp", permission=Config.Permission). \
 
     root_cmd.then(PlayerName("target").runs(tp2player))
 
