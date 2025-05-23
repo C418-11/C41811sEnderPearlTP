@@ -12,6 +12,7 @@ from .cost_strategy import Experience
 from .cost_strategy import Item
 from .cost_strategy import ResourceState
 from .cost_strategy import Vec3
+from .cost_strategy.utils import Hunger
 
 
 class OnlinePlayerAPI:
@@ -143,7 +144,7 @@ class MinecraftDataAPI:
 
         def _get_items() -> list[Item]:
             for item in itertools.chain(player_data["Inventory"], player_data.get("equipment", {}).values()):
-                item = Item.from_json(item)
+                item = Item.from_json(item)  # todo use to_component()
                 frozen_components = json.dumps(item.components)
                 if (found_id := item.id in items) and frozen_components in items[item.id]:
                     items[item.id][frozen_components] = items[item.id][frozen_components].stack(item)
@@ -157,7 +158,19 @@ class MinecraftDataAPI:
         def _get_experience() -> Experience:
             return Experience(player_data["XpTotal"])
 
-        return ResourceState(_get_items(), _get_experience())
+        def _get_hunger() -> Hunger:
+            return Hunger(
+                player_data["foodLevel"],
+                player_data["foodSaturationLevel"],
+                player_data["foodExhaustionLevel"],
+            )
+
+        return ResourceState(
+            _get_items(),
+            _get_experience(),
+            _get_hunger(),
+            player_data["Health"],
+        )
 
 
 online_player_api = OnlinePlayerAPI()

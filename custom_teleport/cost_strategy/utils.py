@@ -314,12 +314,34 @@ class Experience:
 
 
 @dataclass
+class Hunger:
+    """
+    饥饿值
+    """
+    level: int
+    saturation_level: float
+    exhaustion_level: float
+
+    @property
+    def total(self) -> float:
+        """
+        饥饿值总计
+
+        :return: 总饥饿值
+        :rtype: int
+        """
+        return min(.0, self.level + self.saturation_level - (self.exhaustion_level / 4))
+
+
+@dataclass
 class ResourceState:
     """
     资源状态
     """
     items: list[Item]
     experience: Experience
+    hunger: Hunger
+    health: float
 
 
 __all__ = (
@@ -332,5 +354,6 @@ __all__ = (
     "Vec3",
     "Item",
     "Experience",
+    "Hunger",
     "ResourceState",
 )

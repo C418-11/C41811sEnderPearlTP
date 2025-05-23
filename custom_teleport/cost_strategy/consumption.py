@@ -39,40 +39,70 @@ class ItemConsumeStrategy(StrEnum):
     RANDOM = "random"
 
 
+class ResourceType(StrEnum):
+    """
+    资源类型
+    """
+    EXPERIENCE = "experience"
+    ITEMS = "items"
+    HUNGER = "hunger"
+
+
 class InsufficientResourcesError(Exception):
     """
     资源不足
     """
 
+    def __init__(self, resource_type: ResourceType):
+        self.resource_type = resource_type
+
     def __str__(self):
-        return "Insufficient resources"
+        return f"Insufficient {self.resource_type}"
 
 
-class InsufficientExperienceError(InsufficientResourcesError):
+class QuantitativeInsufficientResourcesError(InsufficientResourcesError):
+    """
+    定量资源不足
+    """
+
+    def __init__(self, resource_type: ResourceType, available: float, required: float):
+        super().__init__(resource_type)
+        self.available = available
+        self.required = required
+
+    def __str__(self) -> str:
+        return f"Insufficient {self.resource_type}. Available: {self.available}, Required: {self.required}"
+
+
+class InsufficientExperienceError(QuantitativeInsufficientResourcesError):
     """
     经验不足
     """
 
     def __init__(self, available: float, required: float, strategy: ExperienceConsumeStrategy):
-        self.available = available
-        self.required = required
+        super().__init__(ResourceType.EXPERIENCE, available, required)
         self.strategy = strategy
 
     def __str__(self):
-        return f"Insufficient experience. Available: {self.available}, Required: {self.required} {self.strategy}"
+        return f"{super().__str__()} {self.strategy}"
 
 
-class InsufficientItemsError(InsufficientResourcesError):
+class InsufficientItemsError(QuantitativeInsufficientResourcesError):
     """
     物品不足
     """
 
     def __init__(self, available: float, required: float):
-        self.available = available
-        self.required = required
+        super().__init__(ResourceType.ITEMS, available, required)
 
-    def __str__(self):
-        return f"Insufficient items. Available: {self.available}, Required: {self.required}"
+
+class InsufficientHungerError(QuantitativeInsufficientResourcesError):
+    """
+    饥饿值不足
+    """
+
+    def __init__(self, available: float, required: float):
+        super().__init__(ResourceType.HUNGER, available, required)
 
 
 class PassStrategy(StrEnum):
@@ -279,6 +309,55 @@ class ItemValueCost(Cost):
         return cost_value, commands
 
 
+def calculate_hunger_effect(food_level: float, target_level: float | Decimal) -> (int, int):
+    delta = food_level - target_level
+    if delta <= 0:
+        return 0, 0
+
+    d = delta / 0.025
+    best_e = 0
+    best_s = 0
+    min_error = float('inf')
+
+    for e in range(255, 0, -1):
+        s = math.ceil(d / e)
+        current_total = s * e
+        error = current_total - d
+
+        if error < min_error or (error == min_error and e > best_e):
+            min_error = error
+            best_e = e
+            best_s = s
+            if min_error == 0:
+                break  # 找到零误差的最优解，提前终止
+
+    return best_s, best_e
+
+
+@dataclass
+class HungerEffectCost(Cost):
+    """
+    消耗饥饿值
+    """
+    rate: float = field(default=1)
+    distance_per_hunger: float = field(default=70)  # 消耗1饥饿值约跑跳70米
+
+    def apply_cost(self, cost_value: float, resources: ResourceState) -> tuple[float, list[Command]]:
+        total_hunger = resources.hunger.total
+        required_hunger = Decimal(cost_value) * Decimal(self.rate) / Decimal(self.distance_per_hunger)
+
+        if total_hunger < required_hunger and self.check_strategy == CheckStrategy.STRICT:
+            raise InsufficientHungerError(resources.hunger.total, float(required_hunger))
+        if self.pass_strategy == PassStrategy.PROPAGATE:
+            cost_value -= required_hunger
+
+        resources.hunger -= required_hunger
+        commands = []
+        if (effect := calculate_hunger_effect(total_hunger, required_hunger)) != (0, 0):
+            commands.append(f"effect give @s minecraft:hunger {effect[0]} {effect[1]} true")
+        return cost_value, []
+
+
 @dataclass
 class CompositeCost(Cost):
     """
@@ -316,10 +395,13 @@ CONSUMPTION_TYPES: dict[str, type[Cost]] = {
 __all__ = (
     "ExperienceConsumeStrategy",
     "ItemConsumeStrategy",
+    "ResourceType",
 
     "InsufficientResourcesError",
+    "QuantitativeInsufficientResourcesError",
     "InsufficientExperienceError",
     "InsufficientItemsError",
+    "InsufficientHungerError",
 
     "PassStrategy",
     "CheckStrategy",
@@ -327,6 +409,7 @@ __all__ = (
     "Cost",
     "ExperienceCost",
     "ItemValueCost",
+    "HungerEffectCost",
 
     "CompositeCost",
 

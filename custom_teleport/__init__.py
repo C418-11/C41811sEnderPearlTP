@@ -21,6 +21,7 @@ from .cost_strategy import Command
 from .cost_strategy import CostStrategy
 from .cost_strategy import InsufficientExperienceError
 from .cost_strategy import InsufficientItemsError
+from .cost_strategy import QuantitativeInsufficientResourcesError
 from .helper import h
 from .helper import initialize as init_helper
 from .plugins_api import initialize as init_api
@@ -31,13 +32,15 @@ from .plugins_api import minecraft_data_api
 def suppress(server: CommandSource, exception: BaseException = Exception):
     try:
         yield
-    except InsufficientItemsError as err:
-        server.reply(h.crtr("message.failure.cost.items", available=err.available, required=err.required))
-    except InsufficientExperienceError as err:
-        server.reply(h.crtr(
-            "message.failure.cost.experience",
-            available=err.available, required=err.required, strategy=err.strategy
-        ))
+    except QuantitativeInsufficientResourcesError as err:
+        fmt_kwargs = {
+            "available": err.available,
+            "required": err.required,
+        }
+        if isinstance(err, InsufficientExperienceError):
+            fmt_kwargs["strategy"] = h.crtr(f"unit.{err.resource_type}.{err.strategy}")
+
+        server.reply(h.prtr(f"message.failure.cost.{err.resource_type}", **fmt_kwargs))
     except exception as err:
         traceback.print_exception(err)
         server.reply(h.prtr("message.failure.unknown"))
