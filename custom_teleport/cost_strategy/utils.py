@@ -33,11 +33,23 @@ def limit_value(val: float, min_val: float, max_val: float, scale: float = 1) ->
 
 
 def get_params[C: dict[str, Any]](cfg: C) -> C:
+    """
+    从配置获取参数
+
+    :param cfg: 配置
+    :type cfg: dict[str, Any]
+
+    :return: 参数
+    :rtype: dict[str, Any]
+    """
     return {k: v for k, v in cfg.items() if k != "type"}
 
 
 @dataclass
 class Vec3:
+    """
+    简陋的三维向量
+    """
     x: float
     y: float
     z: float
@@ -45,18 +57,47 @@ class Vec3:
 
 @dataclass
 class Item:
+    """
+    物品
+    """
     count: int
     id: str
     components: dict[str, Any]
 
     def can_stack_with(self, other: Self) -> bool:
+        """
+        判断两个物品是否可以堆叠
+
+        无视原版堆叠上限，``id`` 和 ``components`` 相同即视为可堆叠/同一物品
+
+        :param other: 另一个物品
+        :type other: Self
+
+        :return: 是否可以堆叠
+        :rtype: bool
+        """
         return self.id == other.id and self.components == other.components
 
     @classmethod
     def from_json(cls, json_obj: dict[str, Any]) -> Self:
+        """
+        从 JSON 对象创建物品
+
+        :param json_obj: JSON 对象
+        :type json_obj: dict[str, Any]
+
+        :return: 物品
+        :rtype: Self
+        """
         return cls(json_obj["count"], json_obj["id"], json_obj.get("components", {}))
 
     def to_json(self) -> dict[str, Any]:
+        """
+        转换为 JSON 对象
+
+        :return: JSON 对象
+        :rtype: dict[str, Any]
+        """
         return {
             "count": self.count,
             "id": self.id,
@@ -64,18 +105,48 @@ class Item:
         }
 
     def to_component(self) -> str:
+        """
+        转换为物品组件字符串
+
+        :return: 物品组件字符串
+        :rtype: str
+        """
         components = ",".join(f"{key}={hjson.dumps(value)}" for key, value in self.components.items())
         if not components:
             return self.id
         return f"{self.id}[{components}]"
 
     def stack(self, other: Self) -> Self:
+        """
+        与另一个物品进行堆叠
+
+        :param other: 另一个物品
+        :type other: Self
+
+        :return: 堆叠后的物品
+        :rtype: Self
+
+        :raise ValueError: 不是可堆叠在一起的物品
+
+        .. seealso::
+           :py:meth:`can_stack_with`
+        """
         if self.can_stack_with(other):
             return Item(self.count + other.count, self.id, self.components)
         raise ValueError("Cannot stack items with different id or components")
 
 
 def _convert_other[F: Callable[[...], Any]](func: F) -> F:
+    """
+    将被装饰方法的第一个非self参数转换为该实例
+
+    :param func: 被装饰的方法
+    :type func: Callable[..., Any]
+
+    :return: 装饰后的方法
+    :rtype: Callable[..., Any]
+    """
+
     @wrapt.decorator
     def decorator(wrapped: F, instance: Any, args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
         if instance is None:
@@ -91,10 +162,22 @@ def _convert_other[F: Callable[[...], Any]](func: F) -> F:
 
 @dataclass(order=True)
 class Experience:
+    """
+    经验值
+    """
     points: int
 
     @classmethod
     def from_level(cls, level: int | float) -> Self:
+        """
+        从等级计算经验值
+
+        :param level: 等级
+        :type level: int | float
+
+        :return: 经验值
+        :rtype: Self
+        """
         sign = -1 if level < 0 else 1
         level = abs(level)
         if level <= 16:
@@ -108,6 +191,12 @@ class Experience:
         return cls(int(points))
 
     def to_level(self) -> tuple[int, int]:
+        """
+        转换为等级
+
+        :return: 等级，剩余点数
+        :rtype: tuple[int, int]
+        """
         experience = abs(self)
 
         low = 0
@@ -226,6 +315,9 @@ class Experience:
 
 @dataclass
 class ResourceState:
+    """
+    资源状态
+    """
     items: list[Item]
     experience: Experience
 
