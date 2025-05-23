@@ -40,7 +40,7 @@ def suppress(server: CommandSource, exception: BaseException = Exception):
         ))
     except exception as err:
         traceback.print_exception(err)
-        server.reply(h.crtr("message.failure.unknown"))
+        server.reply(h.prtr("message.failure.unknown"))
 
 
 def _execute_commands(player: str, commands: list[Command]) -> None:
@@ -51,14 +51,14 @@ def _execute_commands(player: str, commands: list[Command]) -> None:
 @new_thread("tp2player")
 def tp2player(server: CommandSource, context: CommandContext) -> None:
     if not isinstance(server, PlayerCommandSource):
-        server.reply(h.crtr("message.failure.not_player"))
+        server.reply(h.prtr("message.failure.not_player"))
         return
 
     player = server.player
-    target = context["target"]
+    target = context["player"]
 
     if player == target:
-        server.reply(h.crtr("message.failure.tp_self"))
+        server.reply(h.prtr("message.failure.tp_self"))
         return
 
     with suppress(server):
@@ -73,20 +73,21 @@ def tp2player(server: CommandSource, context: CommandContext) -> None:
 
         # 执行传送
         h.server.execute(f"tp {player} {target}")
-        server.reply(h.crtr("message.success.to_player", target=target))
+        server.reply(h.prtr("message.success.to_player", target=target))
 
 
 def on_load(server: PluginServerInterface, _prev_module: ModuleType):
     init_helper(server)
+    h.translate_prefix = h.crtr("prefix")
     init_api(server)
     Config.initialize()
 
     def _help(src: CommandSource) -> None:
-        src.reply(h.crtr("help.teleport"))
+        src.reply(h.prtr("help.teleport"))
 
         tp2player_perm = (Config.Permission or Config.TeleportToPlayer.Permission)
         if permission_checker(tp2player_perm)[0](src):
-            src.reply(h.crtr("help.usage.to_player"))
+            src.reply(h.prtr("help.usage.to_player"))
 
     builder = SimpleCommandBuilder()  # todo configable commands
     builder.literal("!!tp", partial(PermLiteral, permission=Config.Permission))

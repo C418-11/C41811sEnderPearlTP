@@ -24,7 +24,7 @@ class Helper:
         self.pkg_name: str | None = inspect.getmodule(inspect.stack()[0][0]).__package__
 
         self.translate_key_formatter = "{package_name}.{key}"
-        self.translate_prefix = ""
+        self.translate_prefix: RTextBase = RTextBase.from_any("")
 
     def initialize(self, server: PluginServerInterface) -> None:
         """
@@ -88,7 +88,6 @@ class Helper:
         try:
             text_object = hjson.loads(translated_text)
         except hjson.HjsonDecodeError:
-            print("fail")
             text_object = translated_text
 
         return RTextBase.from_json_object(text_object)
@@ -109,7 +108,7 @@ class Helper:
         """
 
         text_obejct = self.crtr(translate_key, *args, **kwargs).to_json_object()
-        text_obejct = [self.translate_prefix, text_obejct]
+        text_obejct = [self.translate_prefix.to_json_object(), text_obejct]
         return RTextBase.from_json_object(text_obejct)
 
     def register_command(
