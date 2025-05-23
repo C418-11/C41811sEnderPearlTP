@@ -3,10 +3,12 @@
 
 import contextlib
 import traceback
+from functools import partial
 from types import ModuleType
 
 from mcdreforged.api.decorator import new_thread
 from mcdreforged.command.builder.common import CommandContext
+from mcdreforged.command.builder.tools import SimpleCommandBuilder
 from mcdreforged.command.command_source import CommandSource
 from mcdreforged.command.command_source import PlayerCommandSource
 from mcdreforged.plugin.si.plugin_server_interface import PluginServerInterface
@@ -86,9 +88,11 @@ def on_load(server: PluginServerInterface, _prev_module: ModuleType):
         if permission_checker(tp2player_perm)[0](src):
             src.reply(h.crtr("help.usage.to_player"))
 
-    root_cmd = PermLiteral("!!tp", permission=Config.Permission). \
-        runs(_help)
+    builder = SimpleCommandBuilder()  # todo configable commands
+    builder.literal("!!tp", partial(PermLiteral, permission=Config.Permission))
+    builder.command("!!tp", _help)
+    builder.command("!!tp <player>", tp2player)
+    builder.arg("player", PlayerName)
 
-    root_cmd.then(PlayerName("target").runs(tp2player))
-
-    h.register_command("help.help", root_cmd)
+    for cmd in builder.build():
+        h.register_command("help.help", cmd)
