@@ -21,7 +21,7 @@ from .helper import h
 type OptionalPermission = Optional[str | int]
 type Real = int | float
 
-PluginConfigPool = ConfigPool(root_path=f"./config")
+PluginConfigPool = ConfigPool(root_path="./config")
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "$global": {
@@ -43,7 +43,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
                     },
                     {
                         "type": "items",
-                        "rate": 1/70,
+                        "rate": 1 / 70,
                         "items": {
                             # 水果
                             "minecraft:apple": 6.4,

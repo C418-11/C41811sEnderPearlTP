@@ -1,0 +1,25 @@
+[tool.tox]
+envlist = ["flake8", "mypy"]
+no_package = true
+
+[tool.tox.env.flake8]
+deps = ["flake8"]
+commands = [
+    ["flake8",
+        "--doctests", "--max-line-length=120", "--max-complexity=10",
+        "--show-source", "--count", "--statistics",
+        "custom_teleport",
+    ],
+]
+
+[tool.tox.env.mypy]
+deps = ["mypy", "mcdreforged", "C41811.Config"]
+commands = [
+    ["mypy"],
+]
+
+[tool.mypy]
+files = ["custom_teleport"]
+strict = true
+pretty = true
+allow_redefinition = true

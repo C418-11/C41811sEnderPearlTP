@@ -9,10 +9,10 @@ from typing import Optional
 from mcdreforged.plugin.si.plugin_server_interface import PluginServerInterface
 
 from .cost_strategy import Experience
+from .cost_strategy import Hunger
 from .cost_strategy import Item
 from .cost_strategy import ResourceState
 from .cost_strategy import Vec3
-from .cost_strategy.utils import Hunger
 
 
 class OnlinePlayerAPI:
@@ -38,7 +38,7 @@ class OnlinePlayerAPI:
         :return: 玩家列表
         :rtype: list[str]
         """
-        return self.plugin_instance.get_player_list()
+        return self.plugin_instance.get_player_list()  # type: ignore[no-any-return]
 
     def check_online(self, player: str) -> bool:
         """
@@ -50,7 +50,7 @@ class OnlinePlayerAPI:
         :return: 玩家是否在线
         :rtype: bool
         """
-        return self.plugin_instance.check_online(player)
+        return self.plugin_instance.check_online(player)  # type: ignore[no-any-return]
 
 
 class MinecraftDataAPI:
@@ -99,7 +99,7 @@ class MinecraftDataAPI:
         :return: 玩家列表
         :rtype: Optional[tuple[int, int, list[str]]]
         """
-        return self.plugin_instance.get_server_player_list(timeout=timeout)
+        return self.plugin_instance.get_server_player_list(timeout=timeout)  # type: ignore[no-any-return]
 
     def get_player_info(self, player: str, data_path: str = "", *,
                         timeout: Optional[float] = None) -> dict[str, Any] | list[Any] | int | str | None:
@@ -116,7 +116,7 @@ class MinecraftDataAPI:
         :return: 玩家信息
         :rtype: dict[str, Any] | list[Any] | int | str | None
         """
-        return self.plugin_instance.get_player_info(player, data_path, timeout=timeout)
+        return self.plugin_instance.get_player_info(player, data_path, timeout=timeout)  # type: ignore[no-any-return]
 
     def get_resource_state(self, player: str, *, timeout: Optional[float] = None) -> ResourceState | None:
         """
@@ -137,7 +137,7 @@ class MinecraftDataAPI:
         从id和components获取唯一的Item，确保是stackable
         """
 
-        player_data: dict[str, Any] | None = self.get_player_info(player, timeout=timeout)
+        player_data: dict[str, Any] | None = self.get_player_info(player, timeout=timeout)  # type: ignore[assignment]
 
         if player_data is None:
             return None

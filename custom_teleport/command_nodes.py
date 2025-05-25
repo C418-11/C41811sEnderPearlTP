@@ -14,6 +14,7 @@ from mcdreforged.command.builder.exception import IllegalArgument
 from mcdreforged.command.builder.nodes.basic import ArgumentNode
 from mcdreforged.command.builder.nodes.basic import Literal
 from mcdreforged.command.command_source import CommandSource
+from mcdreforged.minecraft.rtext.text import RTextBase
 from mcdreforged.permission.permission_level import PermissionLevel
 from mcdreforged.permission.permission_level import PermissionLevelItem
 from mcdreforged.permission.permission_level import PermissionParam
@@ -69,11 +70,14 @@ class PlayerName(DynamicEnumeration):
 def permission_checker(
         permission: PermissionParam | PermissionLevelItem,
         comparator: Callable[[int, int], bool] = operator.ge
-) -> tuple[Callable[[CommandSource], bool], Callable[[], str]]:
+) -> tuple[Callable[[CommandSource], bool], Callable[[], RTextBase]]:
     permission = permission if isinstance(permission, PermissionLevelItem) else PermissionLevel.from_value(permission)
 
     def checker(src: CommandSource) -> bool:
-        return comparator(src.get_permission_level(), permission.level)
+        return comparator(
+            src.get_permission_level(),
+            permission.level  # type: ignore[union-attr]
+        )
 
     return checker, lambda: h.crtr("message.failure.no_permission")
 

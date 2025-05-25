@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from typing import Any
 from typing import Self
 
-import hjson
-import wrapt
+import hjson  # type: ignore[import-not-found]
+import wrapt  # type: ignore[import-not-found]
 
 type Command = str
 type CostStrategy = Callable[[Vec3, Vec3, ResourceState], list[Command]]
@@ -32,7 +32,7 @@ def limit_value(val: float, min_val: float, max_val: float, scale: float = 1) ->
     return max(min_val, min(max_val, val * scale))
 
 
-def get_params[C: dict[str, Any]](cfg: C) -> C:
+def get_params(cfg: dict[str, Any]) -> dict[str, Any]:
     """
     从配置获取参数
 
@@ -132,11 +132,12 @@ class Item:
            :py:meth:`can_stack_with`
         """
         if self.can_stack_with(other):
-            return Item(self.count + other.count, self.id, self.components)
+            # noinspection PyArgumentList
+            return type(self)(self.count + other.count, self.id, self.components)
         raise ValueError("Cannot stack items with different id or components")
 
 
-def _convert_other[F: Callable[[...], Any]](func: F) -> F:
+def _convert_other[F: Callable[..., Any]](func: F) -> F:
     """
     将被装饰方法的第一个非self参数转换为该实例
 
@@ -147,7 +148,7 @@ def _convert_other[F: Callable[[...], Any]](func: F) -> F:
     :rtype: Callable[..., Any]
     """
 
-    @wrapt.decorator
+    @wrapt.decorator  # type: ignore[misc]
     def decorator(wrapped: F, instance: Any, args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
         if instance is None:
             raise TypeError("Cannot call method without instance")
@@ -157,7 +158,7 @@ def _convert_other[F: Callable[[...], Any]](func: F) -> F:
             args = (cls(args[0]), *args[1:])
         return wrapped(*args, **kwargs)
 
-    return decorator(func)
+    return decorator(func)  # type: ignore[no-any-return]
 
 
 @dataclass(order=True)
@@ -318,7 +319,7 @@ class Hunger:
     """
     饥饿值
     """
-    level: int
+    level: float
     saturation_level: float
     exhaustion_level: float
 
@@ -328,7 +329,7 @@ class Hunger:
         饥饿值总计
 
         :return: 总饥饿值
-        :rtype: int
+        :rtype: float
         """
         return self.level + self.saturation_level - (self.exhaustion_level / 4)
 

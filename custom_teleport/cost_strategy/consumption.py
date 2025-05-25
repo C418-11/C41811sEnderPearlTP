@@ -56,7 +56,7 @@ class InsufficientResourcesError(Exception):
     def __init__(self, resource_type: ResourceType):
         self.resource_type = resource_type
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Insufficient {self.resource_type}"
 
 
@@ -83,7 +83,7 @@ class InsufficientExperienceError(QuantitativeInsufficientResourcesError):
         super().__init__(ResourceType.EXPERIENCE, available, required)
         self.strategy = strategy
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{super().__str__()} {self.strategy}"
 
 
@@ -172,16 +172,16 @@ class ExperienceCost(Cost):
     def apply_cost(self, cost_value: float, resources: ResourceState) -> tuple[float, list[Command]]:
         selected_strategy = self._select_strategy()
 
+        required_experience: int | float
+        resource_experience: float
         if selected_strategy == ExperienceConsumeStrategy.POINTS:
             required_experience = math.ceil(cost_value * self.rate)
             resource_experience = resources.experience.points
             commands = [f"xp add @s -{required_experience} points"]
         else:
             required_experience = cost_value * self.rate
-            resource_experience = (
-                    (level := resources.experience.to_level())[0]
-                    + resources.experience.from_level(level[0] + 1)
-            )
+            level = resources.experience.to_level()
+            resource_experience = level[0] + level[1] / resources.experience.from_level(level[0] + 1).points
             commands = [f"xp add @s -{required_experience} levels"]
 
         if resource_experience < required_experience and self.check_strategy == CheckStrategy.STRICT:
@@ -193,7 +193,7 @@ class ExperienceCost(Cost):
         return cost_value, commands
 
 
-def calculate_combination(
+def calculate_combination(  # noqa: C901 (too complex)
         items_dict: dict[str, float],
         id_counts: defaultdict[str, int],
         cost_value: float,
@@ -212,7 +212,7 @@ def calculate_combination(
     item_ids = [item[0] for item in sorted_items]
     values = {item[0]: item[1] for item in sorted_items}
 
-    result = {item_id: 0 for item_id in item_ids}
+    result: dict[str, int | Decimal] = {item_id: 0 for item_id in item_ids}
     remaining = cost_value_dec
 
     # 步骤1: 贪心算法优先取最大可能数量
@@ -223,7 +223,10 @@ def calculate_combination(
         if value <= 0:
             continue
         # noinspection PyTypeChecker
-        max_possible = min(id_counts[item_id], (remaining // value).to_integral_value())
+        max_possible: int | Decimal = min(  # type: ignore[assignment]
+            id_counts[item_id],
+            (remaining // value).to_integral_value()
+        )
         if max_possible > 0:
             result[item_id] = max_possible
             remaining -= max_possible * value
@@ -247,7 +250,7 @@ def calculate_combination(
             # 使用 Decimal 的天花板除法计算所需数量
             needed = (remaining / value).to_integral(rounding=ROUND_CEILING)
             # noinspection PyTypeChecker
-            take = min(needed, available)
+            take: Decimal | int = min(needed, available)
             result[item_id] += take
             remaining -= take * value
 
@@ -311,7 +314,7 @@ class ItemValueCost(Cost):
         return cost_value, commands
 
 
-def calculate_hunger_effect(food_level: float, target_level: float) -> (int, int):
+def calculate_hunger_effect(food_level: float, target_level: float) -> tuple[int, int]:
     delta = food_level - target_level
     if delta <= 0:
         return 0, 0

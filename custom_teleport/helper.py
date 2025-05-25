@@ -4,7 +4,7 @@
 import inspect
 from typing import Any
 
-import hjson
+import hjson  # type: ignore[import-not-found]
 from mcdreforged.command.builder.nodes.basic import Literal
 from mcdreforged.minecraft.rtext.text import RTextBase
 from mcdreforged.plugin.si.plugin_server_interface import PluginServerInterface
@@ -20,8 +20,8 @@ class Helper:
     pkg_name: str | None = None
     translate_key_formatter: str
 
-    def __init__(self):
-        self.pkg_name: str | None = inspect.getmodule(inspect.stack()[0][0]).__package__
+    def __init__(self) -> None:
+        self.pkg_name: str | None = module.__package__ if (module := inspect.getmodule(inspect.stack()[0][0])) else None
 
         self.translate_key_formatter = "{package_name}.{key}"
         self.translate_prefix: RTextBase = RTextBase.from_any("")
@@ -38,7 +38,7 @@ class Helper:
     def _translate_key_formatter(self, key: str) -> str:
         """
         格式化翻译键
-    
+
         :param key: 插件内相对翻译键
         :type key: str
 
