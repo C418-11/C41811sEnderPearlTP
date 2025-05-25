@@ -23,10 +23,9 @@ custom_teleport:
           player: §c不在线的玩家§r
           waypoint: §c不存在的路径点§r
       cost:
-        # 可用价值 {available}
-        # 需求价值 {required}
-        items: §c物品不足§r：§7可用价值 §6{available}§7，§c需求价值 §6{required}§r
-        experience: §c经验不足§r：§7可用 §6{available}{strategy}§7，§c需求 §6{required}{strategy}§r
+        items: §c物品不足§r：§7可用价值 §6{available:.2f}§7，§c需求价值 §6{required:.2f}§r
+        experience: §c经验不足§r：§7可用 §6{available:.2f}{strategy}§7，§c需求 §6{required:.2f}{strategy}§r
+        hunger: §c饥饿度不足§r：§7可用 §6{available:.2f}点§7，§c需求 §6{required:.2f}点§r
       no_permission: §c权限不足§r
       not_player: §c只有玩家可以执行此命令！§r
       tp_self: §c你不能传送到你自己！§r
@@ -37,4 +36,7 @@ custom_teleport:
       to_location: §a成功传送至坐标 §6{x} {y} {z}§r
       to_player: §a成功传送至玩家 §d§o{target}§r
       to_waypoint: §a成功传送至路径点 §6{target}§r
-      cost: §7消耗了 §6{cost}§r
+      cost:
+        items: §7消耗 §6{items}§7(§6{cost:.2f}§7) 价值物品§r
+        experience: §7消耗 §6{cost:.2f}{strategy}§7 经验§r
+        hunger: §7消耗 §6{cost:.2f}点§7 饥饿度§r

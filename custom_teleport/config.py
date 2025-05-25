@@ -30,21 +30,47 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "distance": {"type": "euclidean"},
             "cost": {
                 "type": "linear",
-                "base": FieldDef(Real, 1.0),
-                "scale": FieldDef(Real, .05),
+                "base": FieldDef(Real, 0),
+                "scale": FieldDef(Real, 1),
             },
             "consumption": {
                 "type": "composite",
                 "costs": [
                     {
-                        "type": "experience",
-                        "rate": 1,
+                        "type": "hunger",
                         "pass_strategy": PassStrategy.PROPAGATE,
                         "check_strategy": CheckStrategy.LENIENT,
                     },
                     {
                         "type": "items",
-                        "items": {"minecraft:diamond": 100, "minecraft:stone": 1, "minecraft:sand": 2},
+                        "rate": 1/70,
+                        "items": {
+                            # 水果
+                            "minecraft:apple": 6.4,
+                            "minecraft:melon_slice": 3.2,
+
+                            # 蔬菜
+                            "minecraft:baked_potato": 11,
+                            "minecraft:beetroot_soup": 13.2,
+                            "minecraft:dried_kelp": 1.6,
+                            "minecraft:mushroom_stew": 13.2,
+                            # 肉类
+                            "minecraft:cooked_chicken": 13.2,
+                            "minecraft:cooked_cod": 11,
+                            "minecraft:cooked_mutton": 15.6,
+                            "minecraft:cooked_porkchop": 20.8,
+                            "minecraft:cooked_rabbit": 11,
+                            "minecraft:cooked_salmon": 15.6,
+                            "minecraft:cooked_beef": 20.8,
+
+                            # 甜点
+                            "minecraft:bread": 11,
+                            "minecraft:cake": 16.8,
+                            "minecraft:cookie": 2.4,
+                            "minecraft:honey_bottle": 7.2,
+                            "minecraft:pumpkin_pie": 12.8,
+                            "minecraft:golden_carrot": 20.4,
+                        },
                         "strategy": ItemConsumeStrategy.HIGHER_FIRST,
                     },
                 ],

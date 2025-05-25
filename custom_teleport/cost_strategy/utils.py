@@ -330,7 +330,22 @@ class Hunger:
         :return: 总饥饿值
         :rtype: int
         """
-        return min(.0, self.level + self.saturation_level - (self.exhaustion_level / 4))
+        return self.level + self.saturation_level - (self.exhaustion_level / 4)
+
+    @total.setter
+    def total(self, value: float) -> None:
+        subtract = value - self.total
+        if subtract < 0:
+            # saturation_level减到0再减level
+            self.saturation_level += subtract
+            if self.saturation_level < 0:
+                self.level += self.saturation_level
+                self.saturation_level = 0
+        else:
+            self.level += subtract
+            if self.level > 20:
+                self.saturation_level += self.level - 20
+                self.level = 20
 
 
 @dataclass

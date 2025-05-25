@@ -130,7 +130,7 @@ class Cost(ABC):
         应用消耗
 
         .. important::
-           参数 ``resources`` 会在内部更新其值为消耗后的值，若不依赖此行为应考虑使用 :py:func:`deepcopy` 深拷贝后传参
+           会在内部更新参数 ``resources`` 其值为消耗后的值，若不依赖此行为应考虑使用 :py:func:`deepcopy` 深拷贝后传参
 
            实现子类时需要注意该参数的更改一定要放在 :py:attr:`Cost.pass_strategy` 和 :py:attr:`Cost.check_strategy`
            的判断之后，否则可能导致预期之外的行为
@@ -187,7 +187,7 @@ class ExperienceCost(Cost):
         if resource_experience < required_experience and self.check_strategy == CheckStrategy.STRICT:
             raise InsufficientExperienceError(resource_experience, required_experience, selected_strategy)
         if self.pass_strategy == PassStrategy.PROPAGATE:
-            cost_value -= resource_experience
+            cost_value -= resource_experience / self.rate
 
         resources.experience -= required_experience
         return cost_value, commands
@@ -252,7 +252,7 @@ def calculate_combination(
             remaining -= take * value
 
     # 移除数量为0的条目
-    return {k: v for k, v in result.items() if v > 0}
+    return {k: int(v) for k, v in result.items() if v > 0}
 
 
 @dataclass
@@ -260,6 +260,7 @@ class ItemValueCost(Cost):
     """
     物品消耗
     """
+    rate: float = field(default=1)
     items: dict[str, float] = field(default_factory=dict)
     strategy: ItemConsumeStrategy = field(default=ItemConsumeStrategy.HIGHER_FIRST)
 
@@ -285,13 +286,14 @@ class ItemValueCost(Cost):
         if not strategy_func:
             raise ValueError(f"Unsupported strategy: {self.strategy}")
 
-        consumed = strategy_func(self.items, id_counts, cost_value)
+        required_cost_value = cost_value * self.rate
+        consumed = strategy_func(self.items, id_counts, required_cost_value)
 
         total_paid = sum(count * self.items[item_id] for item_id, count in consumed.items())
-        if total_paid < cost_value and self.check_strategy == CheckStrategy.STRICT:
-            raise InsufficientItemsError(total_paid, cost_value)
+        if total_paid < required_cost_value and self.check_strategy == CheckStrategy.STRICT:
+            raise InsufficientItemsError(total_paid, required_cost_value)
         if self.pass_strategy == PassStrategy.PROPAGATE:
-            cost_value -= total_paid
+            cost_value -= total_paid / self.rate
 
         commands = []
         for item_id, count in consumed.items():
@@ -309,7 +311,7 @@ class ItemValueCost(Cost):
         return cost_value, commands
 
 
-def calculate_hunger_effect(food_level: float, target_level: float | Decimal) -> (int, int):
+def calculate_hunger_effect(food_level: float, target_level: float) -> (int, int):
     delta = food_level - target_level
     if delta <= 0:
         return 0, 0
@@ -339,23 +341,23 @@ class HungerEffectCost(Cost):
     """
     消耗饥饿值
     """
-    rate: float = field(default=1)
-    distance_per_hunger: float = field(default=70)  # 消耗1饥饿值约跑跳70米
+    rate: float = field(default=1 / 70)  # 消耗1饥饿值约跑跳70米
 
     def apply_cost(self, cost_value: float, resources: ResourceState) -> tuple[float, list[Command]]:
-        total_hunger = resources.hunger.total
-        required_hunger = Decimal(cost_value) * Decimal(self.rate) / Decimal(self.distance_per_hunger)
+        cost_value = Decimal(cost_value)
+        resource_hunger = Decimal(resources.hunger.total)
+        target_hunger = resource_hunger - cost_value * Decimal(self.rate)
 
-        if total_hunger < required_hunger and self.check_strategy == CheckStrategy.STRICT:
-            raise InsufficientHungerError(resources.hunger.total, float(required_hunger))
-        if self.pass_strategy == PassStrategy.PROPAGATE:
-            cost_value -= required_hunger
+        if ((target_hunger < 0) or (resource_hunger < target_hunger)) and self.check_strategy == CheckStrategy.STRICT:
+            raise InsufficientHungerError(float(resource_hunger), float(resource_hunger - target_hunger))
+        if target_hunger >= 0 and self.pass_strategy == PassStrategy.PROPAGATE:
+            cost_value -= (resource_hunger - target_hunger) / Decimal(self.rate)
 
-        resources.hunger -= required_hunger
+        resources.hunger.total -= float(target_hunger)
         commands = []
-        if (effect := calculate_hunger_effect(total_hunger, required_hunger)) != (0, 0):
+        if (effect := calculate_hunger_effect(float(resource_hunger), float(target_hunger))) != (0, 0):
             commands.append(f"effect give @s minecraft:hunger {effect[0]} {effect[1]} true")
-        return cost_value, []
+        return float(round(cost_value, 7)), commands
 
 
 @dataclass
@@ -390,6 +392,7 @@ CONSUMPTION_TYPES: dict[str, type[Cost]] = {
     "experience": ExperienceCost,
     "items": ItemValueCost,
     "composite": CompositeCost,
+    "hunger": HungerEffectCost,
 }
 
 __all__ = (
