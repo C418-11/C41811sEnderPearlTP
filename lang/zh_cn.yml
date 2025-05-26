@@ -6,9 +6,9 @@ custom_teleport:
     teleport: §7传送到指定目标§r
     usage:
       to_player: §7传送到玩家：§b!!tp <玩家名>§r
-      to_location: §7传送到坐标：§b!!tp <x> <y> <z>§r
-      to_waypoint: §7传送到路径点：§b!!tp <路径点>§r
-      to_home: §7传送到家：§b!!tp [家]§r
+      to_location: §7传送到坐标：§b!!pos <x> <y> <z>§r
+      to_waypoint: §7传送到路径点：§b!!wp <路径点>§r
+      to_home: §7传送到家：§b!!home [家]§r
 
   unit:
     experience:

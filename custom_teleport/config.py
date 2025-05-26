@@ -23,9 +23,23 @@ type Real = int | float
 
 PluginConfigPool = ConfigPool(root_path="./config")
 
+UserPermission: str | int = PermissionLevel.NAMES[1]
+
+
+def _build_default_command_config(name: str, syntax: str) -> dict[str, Any]:
+    return {
+        name: {
+            "enabled": True,
+            "syntax": syntax,
+            "permission": FieldDef(OptionalPermission, None),
+            "cost_strategy": FieldDef(Optional[dict[str, Any]], None),
+        },
+    }
+
+
 DEFAULT_CONFIG: dict[str, Any] = {
     "$global": {
-        "permission": FieldDef(str | int, PermissionLevel.NAMES[1]),
+        "permission": FieldDef(str | int, UserPermission),
         "cost_strategy": {
             "distance": {"type": "euclidean"},
             "cost": {
@@ -78,14 +92,31 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
     },
     "commands": {
-        "teleport-to-player": {
-            "permission": FieldDef(OptionalPermission, None),
-            "cost_strategy": FieldDef(Optional[dict[str, Any]], None),
-        }
-    }
+        **_build_default_command_config("teleport-to-player", "!!tp <player>"),
+        **_build_default_command_config("teleport-to-home", "!!home <home>"),
+        **_build_default_command_config("teleport-to-waypoint", "!!wp <waypoint>"),
+    },
 }
 
 type MCD = MappingConfigData[dict[str, Any]]
+
+
+class CommandConfig:
+    Config: MCD
+
+    Enabled: bool
+    Syntax: str
+    Permission: Optional[PermissionLevelItem] = None
+    CostStrategy: Optional[CostStrategy] = None
+
+    @classmethod
+    def initialize(cls, config: MCD) -> None:
+        cls.Config = config
+
+        cls.Enabled = config.retrieve("enabled")
+        cls.Syntax = config.retrieve("syntax")
+        cls.Permission = None if (perm := config.get("permission")) is None else PermissionLevel.from_value(perm)
+        cls.CostStrategy = None if (strategy := config.get("cost_strategy")) is None else create_cost_strategy(strategy)
 
 
 class Config:
@@ -94,20 +125,14 @@ class Config:
     Permission: PermissionLevelItem
     CostStrategy: CostStrategy
 
-    class TeleportToPlayer:
-        Config: MCD
+    class TeleportToPlayer(CommandConfig):
+        ...
 
-        Permission: Optional[PermissionLevelItem] = None
-        CostStrategy: Optional[CostStrategy] = None
+    class TeleportToHome(CommandConfig):
+        ...
 
-        @classmethod
-        def initialize(cls, config: MCD) -> None:
-            cls.Config = config
-
-            if (permission := cls.Config.retrieve("permission")) is not None:
-                cls.Permission = PermissionLevel.from_value(permission)
-            if (cost_strategy := cls.Config.retrieve("cost_strategy")) is not None:
-                cls.CostStrategy = create_cost_strategy(cost_strategy)
+    class TeleportToWaypoint(CommandConfig):
+        ...
 
     @classmethod
     def initialize(cls) -> None:
@@ -118,3 +143,5 @@ class Config:
         cls.Permission = cls.Config.retrieve("$global\\.permission")
         cls.CostStrategy = create_cost_strategy(cls.Config.retrieve("$global\\.cost_strategy"))
         cls.TeleportToPlayer.initialize(cls.Config.retrieve("commands\\.teleport-to-player"))
+        cls.TeleportToHome.initialize(cls.Config.retrieve("commands\\.teleport-to-home"))
+        cls.TeleportToWaypoint.initialize(cls.Config.retrieve("commands\\.teleport-to-waypoint"))
