@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
+from collections.abc import Callable
 from typing import Any
 from typing import Optional
 
@@ -11,6 +12,7 @@ from C41811.Config.processor.RuamelYaml import RuamelYamlSL
 from mcdreforged.permission.permission_level import PermissionLevel
 from mcdreforged.permission.permission_level import PermissionLevelItem
 
+from .cost_strategy import Vec3
 from .cost_strategy import CheckStrategy
 from .cost_strategy import CostStrategy
 from .cost_strategy import ItemConsumeStrategy
@@ -26,19 +28,18 @@ PluginConfigPool = ConfigPool(root_path="./config")
 UserPermission: str | int = PermissionLevel.NAMES[1]
 
 
-def _build_default_command_config(name: str, syntax: str) -> dict[str, Any]:
+def _build_default_tp_cmd_cfg(syntax: str) -> dict[str, Any]:
     return {
-        name: {
-            "enabled": True,
-            "syntax": syntax,
-            "permission": FieldDef(OptionalPermission, None),
-            "cost_strategy": FieldDef(Optional[dict[str, Any]], None),
-        },
+        "enabled": True,
+        "syntax": syntax,
+        "permission": FieldDef(OptionalPermission, None),
+        "cost_strategy": FieldDef(Optional[dict[str, Any]], None),
     }
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "$global": {
+        "spawn_point": {"x": 0, "y": 64, "z": 0},
         "permission": FieldDef(str | int, UserPermission),
         "cost_strategy": {
             "distance": {"type": "euclidean"},
@@ -52,8 +53,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
                 "costs": [
                     {
                         "type": "hunger",
-                        "pass_strategy": PassStrategy.PROPAGATE,
-                        "check_strategy": CheckStrategy.LENIENT,
+                        "pass_strategy": PassStrategy.PROPAGATE.value,
+                        "check_strategy": CheckStrategy.LENIENT.value,
                     },
                     {
                         "type": "items",
@@ -85,16 +86,27 @@ DEFAULT_CONFIG: dict[str, Any] = {
                             "minecraft:pumpkin_pie": 12.8,
                             "minecraft:golden_carrot": 20.4,
                         },
-                        "strategy": ItemConsumeStrategy.HIGHER_FIRST,
+                        "strategy": ItemConsumeStrategy.HIGHER_FIRST.value,
                     },
                 ],
             },
         },
     },
     "commands": {
-        **_build_default_command_config("teleport-to-player", "!!tp <player>"),
-        **_build_default_command_config("teleport-to-home", "!!home <home>"),
-        **_build_default_command_config("teleport-to-waypoint", "!!wp <waypoint>"),
+        "teleport-to-player": _build_default_tp_cmd_cfg("!!tp 2 <player>"),
+        "teleport-to-home": _build_default_tp_cmd_cfg("!!tp home"),
+        "teleport-to-home-with-name": _build_default_tp_cmd_cfg("!!tp home <home>"),
+        "teleport-to-waypoint": _build_default_tp_cmd_cfg("!!tp wp <waypoint>"),
+
+        "set-home": {
+            "default-home-name": "家",
+            **_build_default_tp_cmd_cfg("!!tp set home"),
+        },
+        "set-home-with-name": {
+            "maximum-homes": 1,
+            **_build_default_tp_cmd_cfg("!!tp set home <new-home>"),
+        },
+        "set-waypoint": _build_default_tp_cmd_cfg("!!tp set wp <new-waypoint>"),
     },
 }
 
@@ -122,6 +134,7 @@ class CommandConfig:
 class Config:
     Config: MCD
 
+    SpawnPoint: Vec3
     Permission: PermissionLevelItem
     CostStrategy: CostStrategy
 
@@ -131,7 +144,29 @@ class Config:
     class TeleportToHome(CommandConfig):
         ...
 
+    class TeleportToHomeWithName(CommandConfig):
+        ...
+
     class TeleportToWaypoint(CommandConfig):
+        ...
+
+    class SetHome(CommandConfig):
+        DefaultHomeName: str
+
+        @classmethod
+        def initialize(cls, config: MCD) -> None:
+            super().initialize(config)
+            cls.DefaultHomeName = config.retrieve("default-home-name")
+
+    class SetHomeWithName(CommandConfig):
+        MaximumHomes: float  # 采用float，因为整数没有 Infinity
+
+        @classmethod
+        def initialize(cls, config: MCD) -> None:
+            super().initialize(config)
+            cls.MaximumHomes = float(config.retrieve("maximum-homes"))
+
+    class SetWaypoint(CommandConfig):
         ...
 
     @classmethod
@@ -140,8 +175,66 @@ class Config:
         cls.Config = PluginConfigPool.require('', f"{h.pkg_name}.yaml", DEFAULT_CONFIG).check()
         # PluginConfigPool.save_all()  # todo save
 
+        cls.SpawnPoint = Vec3(**cls.Config.retrieve("$global\\.spawn_point"))
         cls.Permission = cls.Config.retrieve("$global\\.permission")
         cls.CostStrategy = create_cost_strategy(cls.Config.retrieve("$global\\.cost_strategy"))
+
         cls.TeleportToPlayer.initialize(cls.Config.retrieve("commands\\.teleport-to-player"))
         cls.TeleportToHome.initialize(cls.Config.retrieve("commands\\.teleport-to-home"))
+        cls.TeleportToHomeWithName.initialize(cls.Config.retrieve("commands\\.teleport-to-home-with-name"))
         cls.TeleportToWaypoint.initialize(cls.Config.retrieve("commands\\.teleport-to-waypoint"))
+
+        cls.SetHome.initialize(cls.Config.retrieve("commands\\.set-home"))
+        cls.SetHomeWithName.initialize(cls.Config.retrieve("commands\\.set-home-with-name"))
+        cls.SetWaypoint.initialize(cls.Config.retrieve("commands\\.set-waypoint"))
+
+
+def _permission_getter(getter: Callable[[], PermissionLevelItem | None]) -> Callable[[], PermissionLevelItem]:
+    return lambda: (getter() or Config.Permission)
+
+
+def _strategy_getter(getter: Callable[[], CostStrategy | None]) -> Callable[[], CostStrategy]:
+    return lambda: (getter() or Config.CostStrategy)
+
+
+# ---- 权限 -------------------------------------------------
+TP2PLAYER_PERM = _permission_getter(lambda: Config.TeleportToPlayer.Permission)
+TP2HOME_PERM = _permission_getter(lambda: Config.TeleportToHome.Permission)
+TP2HOME_WITH_NAME_PERM = _permission_getter(lambda: Config.TeleportToHomeWithName.Permission)
+TP2WAYPOINT_PERM = _permission_getter(lambda: Config.TeleportToWaypoint.Permission)
+
+SET_HOME_PERM = _permission_getter(lambda: Config.SetHome.Permission)
+SET_HOME_WITH_NAME_PERM = _permission_getter(lambda: Config.SetHomeWithName.Permission)
+SET_WAYPOINT_PERM = _permission_getter(lambda: Config.SetWaypoint.Permission)
+
+# ---- 成本策略 -----------------------------------------------
+TP2PLAYER_STRATEGY = _strategy_getter(lambda: Config.TeleportToPlayer.CostStrategy)
+TP2HOME_STRATEGY = _strategy_getter(lambda: Config.TeleportToHome.CostStrategy)
+TP2HOME_WITH_NAME_STRATEGY = _strategy_getter(lambda: Config.TeleportToHomeWithName.CostStrategy)
+SET_HOME_WITH_NAME_STRATEGY = _strategy_getter(lambda: Config.SetHomeWithName.CostStrategy)
+TP2WAYPOINT_STRATEGY = _strategy_getter(lambda: Config.TeleportToWaypoint.CostStrategy)
+
+SET_HOME_STRATEGY = _strategy_getter(lambda: Config.SetHome.CostStrategy)
+SET_WAYPOINT_STRATEGY = _strategy_getter(lambda: Config.SetWaypoint.CostStrategy)
+
+__all__ = (
+    "TP2PLAYER_PERM",
+    "TP2HOME_PERM",
+    "TP2HOME_WITH_NAME_PERM",
+    "TP2WAYPOINT_PERM",
+
+    "SET_HOME_PERM",
+    "SET_HOME_WITH_NAME_PERM",
+    "SET_WAYPOINT_PERM",
+
+    "TP2PLAYER_STRATEGY",
+    "TP2HOME_STRATEGY",
+    "TP2HOME_WITH_NAME_STRATEGY",
+    "TP2WAYPOINT_STRATEGY",
+
+    "SET_HOME_STRATEGY",
+    "SET_HOME_WITH_NAME_STRATEGY",
+    "SET_WAYPOINT_STRATEGY",
+
+    "Config",
+)

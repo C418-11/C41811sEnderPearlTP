@@ -43,7 +43,6 @@ class InvalidHomeName(IllegalArgument):
     """
 
     def __init__(self, char_read: int | str, *, home_name: Optional[str]):
-        print(char_read)
         super().__init__(h.crtr("message.failure.argument.not_found.home", home=home_name), char_read)
 
 

@@ -347,18 +347,17 @@ class HungerEffectCost(Cost):
     rate: float = field(default=1 / 70)  # 消耗1饥饿值约跑跳70米
 
     def apply_cost(self, cost_value: float, resources: ResourceState) -> tuple[float, list[Command]]:
-        cost_value = Decimal(cost_value)
-        resource_hunger = Decimal(resources.hunger.total)
-        target_hunger = resource_hunger - cost_value * Decimal(self.rate)
+        resource_hunger = max(.0, resources.hunger.total)
+        target_hunger = max(.0, resource_hunger - cost_value * self.rate)
 
-        if ((target_hunger < 0) or (resource_hunger < target_hunger)) and self.check_strategy == CheckStrategy.STRICT:
-            raise InsufficientHungerError(float(resource_hunger), float(resource_hunger - target_hunger))
-        if target_hunger >= 0 and self.pass_strategy == PassStrategy.PROPAGATE:
-            cost_value -= (resource_hunger - target_hunger) / Decimal(self.rate)
+        if (resource_hunger < target_hunger) and self.check_strategy == CheckStrategy.STRICT:
+            raise InsufficientHungerError(resource_hunger, resource_hunger - target_hunger)
+        if self.pass_strategy == PassStrategy.PROPAGATE:
+            cost_value -= (resource_hunger - target_hunger) / self.rate
 
-        resources.hunger.total -= float(target_hunger)
+        resources.hunger.total -= resource_hunger - target_hunger
         commands = []
-        if (effect := calculate_hunger_effect(float(resource_hunger), float(target_hunger))) != (0, 0):
+        if (effect := calculate_hunger_effect(resource_hunger, target_hunger)) != (0, 0):
             commands.append(f"effect give @s minecraft:hunger {effect[0]} {effect[1]} true")
         return float(round(cost_value, 7)), commands
 

@@ -2,13 +2,26 @@ custom_teleport:
   prefix: "§7[§6传送§7]§r"
 
   help:
-    help: §7使用§b!!tp§7显示该插件的帮助信息§r
-    teleport: §7传送到指定目标§r
+    help: 使用§b!!tp§r显示该插件的帮助信息
+    teleport: |
+      " 传送到指定目标"
     usage:
-      to_player: §7传送到玩家：§b!!tp <玩家名>§r
-      to_location: §7传送到坐标：§b!!pos <x> <y> <z>§r
-      to_waypoint: §7传送到路径点：§b!!wp <路径点>§r
-      to_home: §7传送到家：§b!!home [家]§r
+      to_player: |
+        " 传送到玩家：§b!!tp 2 §7<玩家名>§r"
+      to_location: |
+        " 传送到坐标：§b!!tp pos §7<x> <y> <z>§r"
+      to_waypoint: |
+        " 传送到路径点：§b!!tp wp §7<路径点>§r"
+      to_home: |
+        " 传送到家：§b!!tp home§r"
+      to_home_with_name: |
+        " 传送到家：§b!!tp home §7<家>§r"
+      set_home: |
+        " 设置家：§b!!tp set home§r"
+      set_home_with_name: |
+        " 设置家：§b!!tp set home §7<家>§r"
+      set_waypoint: |
+        " 设置路径点：§b!!tp set wp §7<路径点>§r"
 
   unit:
     experience:
@@ -29,6 +42,7 @@ custom_teleport:
       no_permission: §c权限不足§r
       not_player: §c只有玩家可以执行此命令！§r
       tp_self: §c你不能传送到你自己！§r
+      too_many_homes: §c家数量已达到上限！§r
       unknown: §c未知错误！§r
     success:
       to_home: §a成功传送至家§r
@@ -36,6 +50,10 @@ custom_teleport:
       to_location: §a成功传送至坐标 §6{x} {y} {z}§r
       to_player: §a成功传送至玩家 §d§o{target}§r
       to_waypoint: §a成功传送至路径点 §6{target}§r
+
+      set_home: §a成功设置家§r
+      set_home_with_name: §a成功设置家 §6{target}§r
+
       cost:
         items: §7消耗 §6{items}§7(§6{cost:.2f}§7) 价值物品§r
         experience: §7消耗 §6{cost:.2f}{strategy}§7 经验§r
