@@ -99,16 +99,16 @@ def set_home(server: PlayerCommandSource, context: CommandContext) -> None:
 
     # 获取玩家信息
     start = Vec3(0, 64, 0)
-    end = minecraft_data_api.get_player_coordinate(server.player)
+    target = minecraft_data_api.get_player_coordinate(server.player)
     resources = minecraft_data_api.get_resource_state(server.player)
 
-    if start is None or end is None or resources is None:
+    if start is None or target is None or resources is None:
         server.reply(h.prtr("message.failure.unknown"))
         return
 
     # 计算消耗命令
     player_cost_strategy = SET_HOME_WITH_NAME_STRATEGY() if is_with_name else SET_HOME_STRATEGY()
-    commands = player_cost_strategy(start, end, resources)
+    commands = player_cost_strategy(start, target, resources)
     execute_commands(server.player, commands)
 
     # 设置家
@@ -116,7 +116,7 @@ def set_home(server: PlayerCommandSource, context: CommandContext) -> None:
     if is_with_name and len(homes) >= Config.SetHomeWithName.MaximumHomes:
         server.reply(h.prtr("message.failure.too_many_homes"))
         return
-    homes.setdefault(home_name, end)
+    homes.setdefault(home_name, target)
     server.reply(h.prtr("message.success.set_home", home_name=home_name))
 
 
