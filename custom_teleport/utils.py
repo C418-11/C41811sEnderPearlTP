@@ -43,6 +43,15 @@ def suppress(
         *,
         exception: type[BaseException] | tuple[type[BaseException], ...] = Exception
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]] | Callable[..., Any]:
+    """
+    捕获意料内的错误并提供合理的反馈
+
+    :param func: 待包装函数
+    :type func: Optional[Callable[..., Any]]
+    :param exception: 意料内的错误类型
+    :type exception: type[BaseException] | tuple[type[BaseException], ...]
+    """
+
     def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
         def wrapper(server: CommandSource, context: CommandContext, *args: Any, **kwargs: Any) -> Any:
             try:
@@ -67,6 +76,17 @@ def suppress(
 
 
 def execute_commands(player: str, commands: list[Command]) -> None:
+    """
+    以任意身份批量执行命令
+
+    .. note::
+       此函数默认采用 ``execute as <player> at @s run`` 形式执行命令，因此命令中可以放心使用 ``@s`` 和 ``~``
+
+    :param player: 玩家名/选择器
+    :type player: str
+    :param commands: 命令
+    :type commands: list[Command]
+    """
     for cmd in commands:
         h.server.execute(f"execute as {player} at @s run {cmd}")
 
@@ -75,6 +95,15 @@ def permission_check_wrapper(
         permission: Callable[[], PermissionParam | PermissionLevelItem],
         comparator: Callable[[int, int], bool] = operator.ge
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """
+    权限检查装饰器
+
+    :param permission: 权限获取函数，用于动态获取权限
+    :type permission: Callable[[], PermissionParam | PermissionLevelItem]
+    :param comparator: 比较器
+    :type comparator: Callable[[int, int], bool]
+    """
+
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         def wrapper(server: CommandSource, context: CommandContext, *args: Any, **kwargs: Any) -> Any:
             if not (check_result := permission_checker(permission(), comparator))[0](server):
@@ -88,6 +117,10 @@ def permission_check_wrapper(
 
 
 def player_only(func: Callable[..., Any]) -> Callable[..., Any]:
+    """
+    执行来源限制为玩家
+    """
+
     def wrapper(server: CommandSource, context: CommandContext, *args: Any, **kwargs: Any) -> Any:
         if not isinstance(server, PlayerCommandSource):
             server.reply(h.prtr("message.failure.not_player"))
@@ -95,6 +128,24 @@ def player_only(func: Callable[..., Any]) -> Callable[..., Any]:
         return func(server, context, *args, **kwargs)
 
     return wrapper
+
+
+def get_labels(
+        labels: dict[str | None, dict[str, Any]],
+        player_name: Optional[str] = None
+) -> tuple[set[str], set[str]]:
+    """
+    获取标签
+
+    :param labels: 标签表
+    :type labels: dict[str | None, dict[str, Any]]
+    :param player_name: 玩家名
+    :type player_name: Optional[str]
+
+    :return: 全局标签，玩家标签
+    :rtype: tuple[set[str], set[str]]
+    """
+    return set(labels.get(None, {}).keys()), set() if player_name is None else labels.get(player_name, set())
 
 
 __all__ = (
