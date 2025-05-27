@@ -11,10 +11,11 @@ from typing import overload
 from mcdreforged.command.builder.common import CommandContext
 from mcdreforged.command.command_source import CommandSource
 from mcdreforged.command.command_source import PlayerCommandSource
+from mcdreforged.minecraft.rtext.text import RTextBase
+from mcdreforged.permission.permission_level import PermissionLevel
 from mcdreforged.permission.permission_level import PermissionLevelItem
 from mcdreforged.permission.permission_level import PermissionParam
 
-from .command_nodes import permission_checker
 from .cost_strategy import Command
 from .cost_strategy import InsufficientExperienceError
 from .cost_strategy import QuantitativeInsufficientResourcesError
@@ -91,6 +92,21 @@ def execute_commands(player: str, commands: list[Command]) -> None:
         h.server.execute(f"execute as {player} at @s run {cmd}")
 
 
+def permission_checker(
+        permission: PermissionParam | PermissionLevelItem,
+        comparator: Callable[[int, int], bool] = operator.ge
+) -> tuple[Callable[[CommandSource], bool], Callable[[], RTextBase]]:
+    permission = permission if isinstance(permission, PermissionLevelItem) else PermissionLevel.from_value(permission)
+
+    def checker(src: CommandSource) -> bool:
+        return comparator(
+            src.get_permission_level(),
+            permission.level  # type: ignore[union-attr]
+        )
+
+    return checker, lambda: h.prtr("message.failure.no_permission")
+
+
 def permission_check_wrapper(
         permission: Callable[[], PermissionParam | PermissionLevelItem],
         comparator: Callable[[int, int], bool] = operator.ge
@@ -145,12 +161,36 @@ def get_labels(
     :return: 全局标签，玩家标签
     :rtype: tuple[set[str], set[str]]
     """
-    return set(labels.get(None, {}).keys()), set() if player_name is None else labels.get(player_name, set())
+    return set(labels.get(None, {})), set() if player_name is None else set(labels.get(player_name, {}))
+
+
+def get_label_value[T](
+        labels: dict[str | None, dict[str, T]],
+        label_name: str,
+        player_name: Optional[str] = None,
+) -> T | None:
+    """
+    获取标签值
+
+    :param labels: 标签表
+    :type labels: dict[str | None, dict[str, T]]
+    :param label_name: 标签名
+    :type label_name: str
+    :param player_name: 玩家名
+    :type player_name: Optional[str]
+
+    :return: 标签值
+    :rtype: T | None
+    """
+    return labels.get(player_name, {}).get(label_name)
 
 
 __all__ = (
     "suppress",
     "execute_commands",
+    "permission_checker",
     "permission_check_wrapper",
     "player_only",
+    "get_labels",
+    "get_label_value",
 )

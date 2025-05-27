@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
 
-import operator
+import itertools
 from abc import ABC
 from abc import abstractmethod
-from collections.abc import Callable
 from collections.abc import Iterable
 from typing import Any
 from typing import Optional
@@ -16,16 +15,10 @@ from mcdreforged.command.builder.common import CommandContext
 from mcdreforged.command.builder.common import ParseResult
 from mcdreforged.command.builder.exception import IllegalArgument
 from mcdreforged.command.builder.nodes.basic import ArgumentNode
-from mcdreforged.command.command_source import CommandSource
-from mcdreforged.command.command_source import PlayerCommandSource
-from mcdreforged.minecraft.rtext.text import RTextBase
-from mcdreforged.permission.permission_level import PermissionLevel
-from mcdreforged.permission.permission_level import PermissionLevelItem
-from mcdreforged.permission.permission_level import PermissionParam
 
-from .cost_strategy import Vec3
 from .helper import h
 from .plugins_api import online_player_api
+from .utils import get_labels
 
 
 class InvalidPlayerName(IllegalArgument):
@@ -102,20 +95,13 @@ class LabelName(DynamicEnumeration, ABC):
     标签名参数
     """
 
-    def __init__(self, name: str, labels: Ref[dict[str | None, dict[str, Vec3]]], **kwargs: Any):
+    def __init__(self, name: str, labels: Ref[dict[str | None, dict[str, Any]]], **kwargs: Any):
         super().__init__(name, **kwargs)
         self.labels = labels
 
-    def _get_labels(self, player_name: Optional[str] = None) -> set[str]:
-        labels: set[str] = set(self.labels.value.get(None, {}).keys())
-        if player_name is not None:
-            labels.update(self.labels.value.get(player_name, {}))
-        return labels
-
     @override
     def _get_suggestions(self, context: CommandContext) -> Iterable[str]:
-        # noinspection PyUnresolvedReferences
-        return self._get_labels(context.source.player if isinstance(context.source, PlayerCommandSource) else None)
+        return set(itertools.chain(*get_labels(self.labels.value, getattr(context.source, "player", None))))
 
     @abstractmethod
     def _get_exception(self, parse_result: ParseResult) -> IllegalArgument:
@@ -125,8 +111,7 @@ class LabelName(DynamicEnumeration, ABC):
 
     @override
     def _visit_validate(self, context: CommandContext, parse_result: ParseResult) -> None:
-        # noinspection PyUnresolvedReferences
-        labels = self._get_labels(context.source.player if isinstance(context.source, PlayerCommandSource) else None)
+        labels = set(itertools.chain(*get_labels(self.labels.value, getattr(context.source, "player", None))))
         if parse_result.value not in labels:
             raise self._get_exception(parse_result)
 
@@ -149,21 +134,6 @@ class WaypointName(LabelName):
         return InvalidWaypointName(parse_result.char_read, waypoint_name=parse_result.value)
 
 
-def permission_checker(
-        permission: PermissionParam | PermissionLevelItem,
-        comparator: Callable[[int, int], bool] = operator.ge
-) -> tuple[Callable[[CommandSource], bool], Callable[[], RTextBase]]:
-    permission = permission if isinstance(permission, PermissionLevelItem) else PermissionLevel.from_value(permission)
-
-    def checker(src: CommandSource) -> bool:
-        return comparator(
-            src.get_permission_level(),
-            permission.level  # type: ignore[union-attr]
-        )
-
-    return checker, lambda: h.prtr("message.failure.no_permission")
-
-
 __all__ = (
     "InvalidPlayerName",
     "InvalidHomeName",
@@ -175,6 +145,4 @@ __all__ = (
     "LabelName",
     "HomeName",
     "WaypointName",
-
-    "permission_checker",
 )

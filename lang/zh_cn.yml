@@ -16,10 +16,14 @@ custom_teleport:
         " 传送到家：§b!!tp home§r"
       to_home_with_name: |
         " 传送到家：§b!!tp home §7<家>§r"
+      to_home_optional_name: |
+        " 传送到家：§b!!tp home §7[家]§r"
       set_home: |
         " 设置家：§b!!tp set home§r"
       set_home_with_name: |
         " 设置家：§b!!tp set home §7<家>§r"
+      set_home_optional_name: |
+        " 设置家：§b!!tp set home §7[家]§r"
       set_waypoint: |
         " 设置路径点：§b!!tp set wp §7<路径点>§r"
 
@@ -45,16 +49,13 @@ custom_teleport:
       too_many_homes: §c家数量已达到上限！§r
       unknown: §c未知错误！§r
     success:
-      to_home: §a成功传送至家§r
-      to_home_with_name: §a成功传送至家：§6{target}§r
-      to_location: §a成功传送至坐标 §6{x} {y} {z}§r
-      to_player: §a成功传送至玩家 §d§o{target}§r
-      to_waypoint: §a成功传送至路径点 §6{target}§r
-
-      set_home: §a成功设置家§r
-      set_home_with_name: §a成功设置家 §6{target}§r
-
       cost:
         items: §7消耗 §6{items}§7(§6{cost:.2f}§7) 价值物品§r
         experience: §7消耗 §6{cost:.2f}{strategy}§7 经验§r
         hunger: §7消耗 §6{cost:.2f}点§7 饥饿度§r
+      to_home: §a欢迎回家！§r
+      to_location: §a成功传送至坐标 §6{x} {y} {z}§r
+      to_player: §a成功传送至玩家 §d§o{target}§r
+      to_waypoint: §a成功传送至路径点 §6{target}§r
+      set_home: §a成功设置家§r
+      set_home_with_name: §a成功设置家 §6{target}§r

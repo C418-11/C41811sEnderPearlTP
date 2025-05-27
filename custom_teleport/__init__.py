@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
+import itertools
 from types import ModuleType
 
 from C41811.Config.utils import Ref  # type: ignore[attr-defined]
@@ -15,15 +16,18 @@ from mcdreforged.plugin.si.plugin_server_interface import PluginServerInterface
 from .command_nodes import HomeName
 from .command_nodes import PlayerName
 from .command_nodes import WaypointName
-from .command_nodes import permission_checker
 from .config import Config
 from .config import SET_HOME_PERM
 from .config import SET_HOME_STRATEGY
+from .config import SET_HOME_USE_OPTIONAL_USAGE
 from .config import SET_HOME_WITH_NAME_PERM
 from .config import SET_HOME_WITH_NAME_STRATEGY
 from .config import SET_WAYPOINT_PERM
 from .config import TP2HOME_PERM
+from .config import TP2HOME_STRATEGY
+from .config import TP2HOME_USE_OPTIONAL_USAGE
 from .config import TP2HOME_WITH_NAME_PERM
+from .config import TP2HOME_WITH_NAME_STRATEGY
 from .config import TP2PLAYER_PERM
 from .config import TP2PLAYER_STRATEGY
 from .config import TP2WAYPOINT_PERM
@@ -33,7 +37,10 @@ from .helper import initialize as init_helper
 from .plugins_api import initialize as init_api
 from .plugins_api import minecraft_data_api
 from .utils import execute_commands
+from .utils import get_label_value
+from .utils import get_labels
 from .utils import permission_check_wrapper
+from .utils import permission_checker
 from .utils import player_only
 from .utils import suppress
 
@@ -78,7 +85,37 @@ WAYPOINTS: dict[str | None, dict[str, Vec3]] = {}
 @player_only
 @suppress
 def tp2home(server: PlayerCommandSource, context: CommandContext) -> None:
-    ...  # todo implement
+    is_with_name = context.get("new-home") is not None
+
+    homes = set(itertools.chain(*get_labels(HOMES, server.player)))
+    try:
+        home_name = next(iter(homes))
+    except StopIteration:
+        server.reply(h.prtr("message.failure.argument.not_found.home"))
+        return
+    if not is_with_name and Config.SetHome.DefaultHomeName in homes:
+        home_name = Config.SetHome.DefaultHomeName
+
+    # 获取玩家信息
+    start = minecraft_data_api.get_player_coordinate(server.player)
+    target = get_label_value(HOMES, home_name, server.player)
+    resources = minecraft_data_api.get_resource_state(server.player)
+
+    if target is None:
+        server.reply(h.prtr("message.failure.argument.not_found.home"))
+        return
+    if start is None or resources is None:
+        server.reply(h.prtr("message.failure.unknown"))
+        return
+
+    # 计算传送费用
+    player_cost_strategy = TP2HOME_WITH_NAME_STRATEGY() if is_with_name else TP2HOME_STRATEGY()
+    commands = player_cost_strategy(start, target, resources)
+    execute_commands(server.player, commands)
+
+    # 传送
+    h.server.execute(f"tp {server.player} {target.x} {target.y} {target.z}")
+    server.reply(h.prtr("message.success.to_home", home_name=home_name))
 
 
 @new_thread("tp2waypoint")  # type: ignore[misc]
@@ -97,12 +134,18 @@ def set_home(server: PlayerCommandSource, context: CommandContext) -> None:
     is_with_name = context.get("new-home", None) is not None
     home_name = context.get("new-home", Config.SetHome.DefaultHomeName)
 
+    has_home = home_name in set(itertools.chain(*get_labels(HOMES, server.player)))
+    is_maximum = len(HOMES.get(server.player, {})) >= Config.SetHomeWithName.MaximumHomes
+    if is_with_name and is_maximum and not has_home:
+        server.reply(h.prtr("message.failure.too_many_homes"))
+        return
+
     # 获取玩家信息
-    start = Vec3(0, 64, 0)
+    start = Config.SpawnPoint
     target = minecraft_data_api.get_player_coordinate(server.player)
     resources = minecraft_data_api.get_resource_state(server.player)
 
-    if start is None or target is None or resources is None:
+    if target is None or resources is None:
         server.reply(h.prtr("message.failure.unknown"))
         return
 
@@ -112,11 +155,7 @@ def set_home(server: PlayerCommandSource, context: CommandContext) -> None:
     execute_commands(server.player, commands)
 
     # 设置家
-    homes = HOMES.setdefault(server.player, {})
-    if is_with_name and len(homes) >= Config.SetHomeWithName.MaximumHomes:
-        server.reply(h.prtr("message.failure.too_many_homes"))
-        return
-    homes.setdefault(home_name, target)
+    HOMES.setdefault(server.player, {})[home_name] = target
     server.reply(h.prtr("message.success.set_home", home_name=home_name))
 
 
@@ -131,19 +170,35 @@ def set_waypoint(server: PlayerCommandSource, context: CommandContext) -> None:
 def _help(src: CommandSource) -> None:
     src.reply(h.prtr("help.teleport"))
 
+    # ---- Player -------------------------------
     if permission_checker(TP2PLAYER_PERM())[0](src):
         src.reply(h.prtr("help.usage.to_player"))
-    if permission_checker(TP2HOME_PERM())[0](src):
+
+    # ---- Home ---------------------------------
+    allow_tp2home = permission_checker(TP2HOME_PERM())[0](src)
+    allow_tp2home_with_name = permission_checker(TP2HOME_WITH_NAME_PERM())[0](src)
+
+    if TP2HOME_USE_OPTIONAL_USAGE() and allow_tp2home and allow_tp2home_with_name:
+        src.reply(h.prtr("help.usage.to_home_optional_name"))
+    elif allow_tp2home:
         src.reply(h.prtr("help.usage.to_home"))
-    if permission_checker(TP2HOME_WITH_NAME_PERM())[0](src):
+    elif allow_tp2home_with_name:
         src.reply(h.prtr("help.usage.to_home_with_name"))
+
+    # ---- Set Home -----------------------------
+    allow_set_home = permission_checker(SET_HOME_PERM())[0](src)
+    allow_set_home_with_name = permission_checker(SET_HOME_WITH_NAME_PERM())[0](src)
+
+    if SET_HOME_USE_OPTIONAL_USAGE() and allow_set_home and allow_set_home_with_name:
+        src.reply(h.prtr("help.usage.set_home_optional_name"))
+    elif allow_set_home:
+        src.reply(h.prtr("help.usage.set_home"))
+    elif allow_set_home_with_name:
+        src.reply(h.prtr("help.usage.set_home_with_name"))
+
+    # --- Waypoint ------------------------------
     if permission_checker(TP2WAYPOINT_PERM())[0](src):
         src.reply(h.prtr("help.usage.to_waypoint"))
-
-    if permission_checker(SET_HOME_PERM())[0](src):
-        src.reply(h.prtr("help.usage.set_home"))
-    if permission_checker(SET_HOME_WITH_NAME_PERM())[0](src):
-        src.reply(h.prtr("help.usage.set_home_with_name"))
     if permission_checker(SET_WAYPOINT_PERM())[0](src):
         src.reply(h.prtr("help.usage.set_waypoint"))
 

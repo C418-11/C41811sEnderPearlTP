@@ -12,11 +12,11 @@ from C41811.Config.processor.RuamelYaml import RuamelYamlSL
 from mcdreforged.permission.permission_level import PermissionLevel
 from mcdreforged.permission.permission_level import PermissionLevelItem
 
-from .cost_strategy import Vec3
 from .cost_strategy import CheckStrategy
 from .cost_strategy import CostStrategy
 from .cost_strategy import ItemConsumeStrategy
 from .cost_strategy import PassStrategy
+from .cost_strategy import Vec3
 from .cost_strategy import create_cost_strategy
 from .helper import h
 
@@ -95,7 +95,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "commands": {
         "teleport-to-player": _build_default_tp_cmd_cfg("!!tp 2 <player>"),
         "teleport-to-home": _build_default_tp_cmd_cfg("!!tp home"),
-        "teleport-to-home-with-name": _build_default_tp_cmd_cfg("!!tp home <home>"),
+        "teleport-to-home-with-name": {
+            "use-optional-usage": True,
+            **_build_default_tp_cmd_cfg("!!tp home <home>"),
+        },
         "teleport-to-waypoint": _build_default_tp_cmd_cfg("!!tp wp <waypoint>"),
 
         "set-home": {
@@ -104,6 +107,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         "set-home-with-name": {
             "maximum-homes": 1,
+            "use-optional-usage": True,
             **_build_default_tp_cmd_cfg("!!tp set home <new-home>"),
         },
         "set-waypoint": _build_default_tp_cmd_cfg("!!tp set wp <new-waypoint>"),
@@ -145,7 +149,12 @@ class Config:
         ...
 
     class TeleportToHomeWithName(CommandConfig):
-        ...
+        UseOptionalUsage: bool
+
+        @classmethod
+        def initialize(cls, config: MCD) -> None:
+            super().initialize(config)
+            cls.UseOptionalUsage = config.retrieve("use-optional-usage")
 
     class TeleportToWaypoint(CommandConfig):
         ...
@@ -160,11 +169,13 @@ class Config:
 
     class SetHomeWithName(CommandConfig):
         MaximumHomes: float  # 采用float，因为整数没有 Infinity
+        UseOptionalUsage: bool
 
         @classmethod
         def initialize(cls, config: MCD) -> None:
             super().initialize(config)
             cls.MaximumHomes = float(config.retrieve("maximum-homes"))
+            cls.UseOptionalUsage = config.retrieve("use-optional-usage")
 
     class SetWaypoint(CommandConfig):
         ...
@@ -197,6 +208,13 @@ def _strategy_getter(getter: Callable[[], CostStrategy | None]) -> Callable[[], 
     return lambda: (getter() or Config.CostStrategy)
 
 
+def _use_optional_usage(
+        cfg_cls: type[CommandConfig],
+        with_name_cfg: type[Config.TeleportToHomeWithName] | type[Config.SetHomeWithName],
+) -> Callable[[], bool]:
+    return lambda: (cfg_cls.Enabled and with_name_cfg.Enabled and with_name_cfg.UseOptionalUsage)
+
+
 # ---- 权限 -------------------------------------------------
 TP2PLAYER_PERM = _permission_getter(lambda: Config.TeleportToPlayer.Permission)
 TP2HOME_PERM = _permission_getter(lambda: Config.TeleportToHome.Permission)
@@ -217,7 +235,12 @@ TP2WAYPOINT_STRATEGY = _strategy_getter(lambda: Config.TeleportToWaypoint.CostSt
 SET_HOME_STRATEGY = _strategy_getter(lambda: Config.SetHome.CostStrategy)
 SET_WAYPOINT_STRATEGY = _strategy_getter(lambda: Config.SetWaypoint.CostStrategy)
 
+# ---- 翻译 -------------------------------------------------
+TP2HOME_USE_OPTIONAL_USAGE = _use_optional_usage(Config.TeleportToHome, Config.TeleportToHomeWithName)
+SET_HOME_USE_OPTIONAL_USAGE = _use_optional_usage(Config.SetHome, Config.SetHomeWithName)
+
 __all__ = (
+    # 权限
     "TP2PLAYER_PERM",
     "TP2HOME_PERM",
     "TP2HOME_WITH_NAME_PERM",
@@ -227,6 +250,7 @@ __all__ = (
     "SET_HOME_WITH_NAME_PERM",
     "SET_WAYPOINT_PERM",
 
+    # 成本策略
     "TP2PLAYER_STRATEGY",
     "TP2HOME_STRATEGY",
     "TP2HOME_WITH_NAME_STRATEGY",
@@ -235,6 +259,10 @@ __all__ = (
     "SET_HOME_STRATEGY",
     "SET_HOME_WITH_NAME_STRATEGY",
     "SET_WAYPOINT_STRATEGY",
+
+    # 翻译
+    "TP2HOME_USE_OPTIONAL_USAGE",
+    "SET_HOME_USE_OPTIONAL_USAGE",
 
     "Config",
 )
