@@ -80,7 +80,7 @@ class PlayerName(DynamicEnumeration):
     玩家名参数
     """
 
-    def __init__(self, name: str, require_online: bool = False, **kwargs):
+    def __init__(self, name: str, require_online: bool = False, **kwargs: Any):
         super().__init__(name, **kwargs)
         self.require_online = require_online
 

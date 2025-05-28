@@ -20,6 +20,8 @@ from .command_nodes import PlayerName
 from .command_nodes import WaypointName
 from .config import CommandConfig
 from .config import Config
+from .config import LIST_HOME_PERM
+from .config import LIST_HOME_WITH_PLAYER_PERM
 from .config import SET_HOME_PERM
 from .config import SET_HOME_STRATEGY
 from .config import SET_HOME_USE_OPTIONAL_USAGE
@@ -39,6 +41,7 @@ from .helper import h
 from .helper import initialize as init_helper
 from .plugins_api import initialize as init_api
 from .plugins_api import minecraft_data_api
+from .utils import AnyPermissionGetter
 from .utils import execute_commands
 from .utils import get_label_value
 from .utils import get_labels
@@ -84,7 +87,7 @@ WAYPOINTS: dict[str | None, dict[str, Vec3]] = {}
 
 
 @new_thread("tp2home")  # type: ignore[misc]
-@permission_check_wrapper(TP2HOME_PERM)
+@permission_check_wrapper((TP2HOME_PERM, TP2HOME_WITH_NAME_PERM))
 @player_only
 @suppress
 def tp2home(server: PlayerCommandSource, context: CommandContext) -> None:
@@ -130,7 +133,7 @@ def tp2waypoint(server: PlayerCommandSource, context: CommandContext) -> None:
 
 
 @new_thread("set-home")  # type: ignore[misc]
-@permission_check_wrapper(SET_HOME_PERM)
+@permission_check_wrapper((SET_HOME_PERM, SET_HOME_WITH_NAME_PERM))
 @player_only
 @suppress
 def set_home(server: PlayerCommandSource, context: CommandContext) -> None:
@@ -170,21 +173,29 @@ def set_waypoint(server: PlayerCommandSource, context: CommandContext) -> None:
     ...  # todo implement
 
 
+@new_thread("list-home")  # type: ignore[misc]
+@permission_check_wrapper((LIST_HOME_PERM, LIST_HOME_WITH_PLAYER_PERM))
+@player_only
+@suppress
+def list_home(server: PlayerCommandSource, context: CommandContext) -> None:
+    ...  # todo implement
+
+
 def _help(src: CommandSource, _: CommandContext) -> None:
     src.reply(h.prtr("help.teleport"))
 
-    def _show(perm: Callable[[], bool], translate_key: str) -> bool:
+    def _show(perm: AnyPermissionGetter, translate_key: str) -> bool:
         if permission_checker(perm())[0](src):
             src.reply(h.prtr(translate_key))
             return True
         return False
 
     def _show_optional_usage(
-            use_optional_usage: Callable[[], bool],
+            use_optional_usage: AnyPermissionGetter,
             translate_key_with_optional_usage: str,
-            perm: Callable[[], bool],
+            perm: AnyPermissionGetter,
             translate_key: str,
-            perm_with_name: Callable[[], bool],
+            perm_with_name: AnyPermissionGetter,
             translate_key_with_name: str
     ) -> bool:
         has_perm = permission_checker(perm())[0](src)

@@ -92,8 +92,11 @@ def execute_commands(player: str, commands: list[Command]) -> None:
         h.server.execute(f"execute as {player} at @s run {cmd}")
 
 
+type AnyPermission = PermissionParam | PermissionLevelItem
+
+
 def permission_checker(
-        permission: PermissionParam | PermissionLevelItem,
+        permission: AnyPermission,
         comparator: Callable[[int, int], bool] = operator.ge
 ) -> tuple[Callable[[CommandSource], bool], Callable[[], RTextBase]]:
     permission = permission if isinstance(permission, PermissionLevelItem) else PermissionLevel.from_value(permission)
@@ -107,22 +110,28 @@ def permission_checker(
     return checker, lambda: h.prtr("message.failure.no_permission")
 
 
+type AnyPermissionGetter = Callable[[], AnyPermission]
+
+
 def permission_check_wrapper(
-        permission: Callable[[], PermissionParam | PermissionLevelItem],
+        permission: AnyPermissionGetter | tuple[AnyPermissionGetter, ...],
         comparator: Callable[[int, int], bool] = operator.ge
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     权限检查装饰器
 
     :param permission: 权限获取函数，用于动态获取权限
-    :type permission: Callable[[], PermissionParam | PermissionLevelItem]
+    :type permission:
+       Callable[[], PermissionParam | PermissionLevelItem]
+       | tuple[Callable[[], PermissionParam | PermissionLevelItem], ...]
     :param comparator: 比较器
     :type comparator: Callable[[int, int], bool]
     """
+    permissions: tuple[AnyPermissionGetter, ...] = permission if isinstance(permission, tuple) else (permission,)
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         def wrapper(server: CommandSource, context: CommandContext, *args: Any, **kwargs: Any) -> Any:
-            if not (check_result := permission_checker(permission(), comparator))[0](server):
+            if not any((check_result := permission_checker(perm(), comparator))[0](server) for perm in permissions):
                 server.reply(check_result[1]())
                 return None
             return func(server, context, *args, **kwargs)
@@ -188,7 +197,9 @@ def get_label_value[T](
 __all__ = (
     "suppress",
     "execute_commands",
+    "AnyPermission",
     "permission_checker",
+    "AnyPermissionGetter",
     "permission_check_wrapper",
     "player_only",
     "get_labels",
