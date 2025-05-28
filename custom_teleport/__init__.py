@@ -55,12 +55,12 @@ from .utils import suppress
 @permission_check_wrapper(TP2PLAYER_PERM)
 @player_only
 @suppress
-def tp2player(server: PlayerCommandSource, context: CommandContext) -> None:
-    player = server.player
+def tp2player(source: PlayerCommandSource, context: CommandContext) -> None:
+    player = source.player
     target = context["player"]
 
     if player == target:
-        server.reply(h.prtr("message.failure.tp_self"))
+        source.reply(h.prtr("message.failure.tp_self"))
         return
 
     # 获取玩家信息
@@ -69,7 +69,7 @@ def tp2player(server: PlayerCommandSource, context: CommandContext) -> None:
     resources = minecraft_data_api.get_resource_state(player)
 
     if start is None or end is None or resources is None:
-        server.reply(h.prtr("message.failure.unknown"))
+        source.reply(h.prtr("message.failure.unknown"))
         return
 
     # 计算消耗命令
@@ -79,7 +79,7 @@ def tp2player(server: PlayerCommandSource, context: CommandContext) -> None:
 
     # 执行传送
     h.server.execute(f"tp {player} {target}")
-    server.reply(h.prtr("message.success.to_player", target=target))
+    source.reply(h.prtr("message.success.to_player", target=target))
 
 
 HOMES: dict[str | None, dict[str, Vec3]] = {}
@@ -90,45 +90,45 @@ WAYPOINTS: dict[str | None, dict[str, Vec3]] = {}
 @permission_check_wrapper((TP2HOME_PERM, TP2HOME_WITH_NAME_PERM))
 @player_only
 @suppress
-def tp2home(server: PlayerCommandSource, context: CommandContext) -> None:
+def tp2home(source: PlayerCommandSource, context: CommandContext) -> None:
     is_with_name = context.get("new-home") is not None
 
-    homes = set(itertools.chain(*get_labels(HOMES, server.player)))
+    homes = set(itertools.chain(*get_labels(HOMES, source.player)))
     try:
         home_name = next(iter(homes))
     except StopIteration:
-        server.reply(h.prtr("message.failure.argument.not_found.home"))
+        source.reply(h.prtr("message.failure.argument.not_found.home"))
         return
     if not is_with_name and Config.SetHome.DefaultHomeName in homes:
         home_name = Config.SetHome.DefaultHomeName
 
     # 获取玩家信息
-    start = minecraft_data_api.get_player_coordinate(server.player)
-    target = get_label_value(HOMES, home_name, server.player)
-    resources = minecraft_data_api.get_resource_state(server.player)
+    start = minecraft_data_api.get_player_coordinate(source.player)
+    target = get_label_value(HOMES, home_name, source.player)
+    resources = minecraft_data_api.get_resource_state(source.player)
 
     if target is None:
-        server.reply(h.prtr("message.failure.argument.not_found.home"))
+        source.reply(h.prtr("message.failure.argument.not_found.home"))
         return
     if start is None or resources is None:
-        server.reply(h.prtr("message.failure.unknown"))
+        source.reply(h.prtr("message.failure.unknown"))
         return
 
     # 计算传送费用
     player_cost_strategy = TP2HOME_WITH_NAME_STRATEGY() if is_with_name else TP2HOME_STRATEGY()
     commands = player_cost_strategy(start, target, resources)
-    execute_commands(server.player, commands)
+    execute_commands(source.player, commands)
 
     # 传送
-    h.server.execute(f"tp {server.player} {target.x} {target.y} {target.z}")
-    server.reply(h.prtr("message.success.to_home", home_name=home_name))
+    h.server.execute(f"tp {source.player} {target.x} {target.y} {target.z}")
+    source.reply(h.prtr("message.success.to_home", home_name=home_name))
 
 
 @new_thread("tp2waypoint")  # type: ignore[misc]
 @permission_check_wrapper(TP2WAYPOINT_PERM)
 @player_only
 @suppress
-def tp2waypoint(server: PlayerCommandSource, context: CommandContext) -> None:
+def tp2waypoint(source: PlayerCommandSource, context: CommandContext) -> None:
     ...  # todo implement
 
 
@@ -136,40 +136,40 @@ def tp2waypoint(server: PlayerCommandSource, context: CommandContext) -> None:
 @permission_check_wrapper((SET_HOME_PERM, SET_HOME_WITH_NAME_PERM))
 @player_only
 @suppress
-def set_home(server: PlayerCommandSource, context: CommandContext) -> None:
+def set_home(source: PlayerCommandSource, context: CommandContext) -> None:
     is_with_name = context.get("new-home", None) is not None
     home_name = context.get("new-home", Config.SetHome.DefaultHomeName)
 
-    has_home = home_name in set(itertools.chain(*get_labels(HOMES, server.player)))
-    is_maximum = len(HOMES.get(server.player, {})) >= Config.SetHomeWithName.MaximumHomes
+    has_home = home_name in set(itertools.chain(*get_labels(HOMES, source.player)))
+    is_maximum = len(HOMES.get(source.player, {})) >= Config.SetHomeWithName.MaximumHomes
     if is_with_name and is_maximum and not has_home:
-        server.reply(h.prtr("message.failure.too_many_homes"))
+        source.reply(h.prtr("message.failure.too_many_homes"))
         return
 
     # 获取玩家信息
     start = Config.SpawnPoint
-    target = minecraft_data_api.get_player_coordinate(server.player)
-    resources = minecraft_data_api.get_resource_state(server.player)
+    target = minecraft_data_api.get_player_coordinate(source.player)
+    resources = minecraft_data_api.get_resource_state(source.player)
 
     if target is None or resources is None:
-        server.reply(h.prtr("message.failure.unknown"))
+        source.reply(h.prtr("message.failure.unknown"))
         return
 
     # 计算消耗命令
     player_cost_strategy = SET_HOME_WITH_NAME_STRATEGY() if is_with_name else SET_HOME_STRATEGY()
     commands = player_cost_strategy(start, target, resources)
-    execute_commands(server.player, commands)
+    execute_commands(source.player, commands)
 
     # 设置家
-    HOMES.setdefault(server.player, {})[home_name] = target
-    server.reply(h.prtr("message.success.set_home", home_name=home_name))
+    HOMES.setdefault(source.player, {})[home_name] = target
+    source.reply(h.prtr("message.success.set_home", home_name=home_name))
 
 
 @new_thread("set-waypoint")  # type: ignore[misc]
 @permission_check_wrapper(SET_WAYPOINT_PERM)
 @player_only
 @suppress
-def set_waypoint(server: PlayerCommandSource, context: CommandContext) -> None:
+def set_waypoint(source: PlayerCommandSource, context: CommandContext) -> None:
     ...  # todo implement
 
 
@@ -177,16 +177,16 @@ def set_waypoint(server: PlayerCommandSource, context: CommandContext) -> None:
 @permission_check_wrapper((LIST_HOME_PERM, LIST_HOME_WITH_PLAYER_PERM))
 @player_only
 @suppress
-def list_home(server: PlayerCommandSource, context: CommandContext) -> None:
     ...  # todo implement
+def list_home(source: PlayerCommandSource, context: CommandContext) -> None:
 
 
-def _help(src: CommandSource, _: CommandContext) -> None:
-    src.reply(h.prtr("help.teleport"))
+def _help(source: CommandSource, _: CommandContext) -> None:
+    source.reply(h.prtr("help.teleport"))
 
     def _show(perm: AnyPermissionGetter, translate_key: str) -> bool:
-        if permission_checker(perm())[0](src):
-            src.reply(h.prtr(translate_key))
+        if permission_checker(perm())[0](source):
+            source.reply(h.prtr(translate_key))
             return True
         return False
 
@@ -198,16 +198,16 @@ def _help(src: CommandSource, _: CommandContext) -> None:
             perm_with_name: AnyPermissionGetter,
             translate_key_with_name: str
     ) -> bool:
-        has_perm = permission_checker(perm())[0](src)
-        has_perm_with_name = permission_checker(perm_with_name())[0](src)
+        has_perm = permission_checker(perm())[0](source)
+        has_perm_with_name = permission_checker(perm_with_name())[0](source)
 
         if use_optional_usage() and has_perm and has_perm_with_name:
-            src.reply(h.prtr(translate_key_with_optional_usage))
+            source.reply(h.prtr(translate_key_with_optional_usage))
         elif has_perm or has_perm_with_name:
             if has_perm:
-                src.reply(h.prtr(translate_key))
+                source.reply(h.prtr(translate_key))
             if has_perm_with_name:
-                src.reply(h.prtr(translate_key_with_name))
+                source.reply(h.prtr(translate_key_with_name))
         else:
             return False
         return True

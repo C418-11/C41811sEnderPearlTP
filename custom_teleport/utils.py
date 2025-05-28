@@ -54,9 +54,9 @@ def suppress(
     """
 
     def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
-        def wrapper(server: CommandSource, context: CommandContext, *args: Any, **kwargs: Any) -> Any:
+        def wrapper(source: CommandSource, context: CommandContext, *args: Any, **kwargs: Any) -> Any:
             try:
-                return f(server, context, *args, **kwargs)
+                return f(source, context, *args, **kwargs)
             except QuantitativeInsufficientResourcesError as err:
                 fmt_kwargs: dict[str, Any] = {
                     "available": err.available,
@@ -65,10 +65,10 @@ def suppress(
                 if isinstance(err, InsufficientExperienceError):
                     fmt_kwargs["strategy"] = h.crtr(f"unit.{err.resource_type}.{err.strategy}")
 
-                server.reply(h.prtr(f"message.failure.cost.{err.resource_type}", **fmt_kwargs))
+                source.reply(h.prtr(f"message.failure.cost.{err.resource_type}", **fmt_kwargs))
             except exception as err:
                 traceback.print_exception(err)
-                server.reply(h.prtr("message.failure.unknown"))
+                source.reply(h.prtr("message.failure.unknown"))
             return None
 
         return wrapper
@@ -130,11 +130,11 @@ def permission_check_wrapper(
     permissions: tuple[AnyPermissionGetter, ...] = permission if isinstance(permission, tuple) else (permission,)
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        def wrapper(server: CommandSource, context: CommandContext, *args: Any, **kwargs: Any) -> Any:
-            if not any((check_result := permission_checker(perm(), comparator))[0](server) for perm in permissions):
-                server.reply(check_result[1]())
+        def wrapper(source: CommandSource, context: CommandContext, *args: Any, **kwargs: Any) -> Any:
+            if not any((check_result := permission_checker(perm(), comparator))[0](source) for perm in permissions):
+                source.reply(check_result[1]())
                 return None
-            return func(server, context, *args, **kwargs)
+            return func(source, context, *args, **kwargs)
 
         return wrapper
 
@@ -146,11 +146,11 @@ def player_only(func: Callable[..., Any]) -> Callable[..., Any]:
     执行来源限制为玩家
     """
 
-    def wrapper(server: CommandSource, context: CommandContext, *args: Any, **kwargs: Any) -> Any:
-        if not isinstance(server, PlayerCommandSource):
-            server.reply(h.prtr("message.failure.not_player"))
+    def wrapper(source: CommandSource, context: CommandContext, *args: Any, **kwargs: Any) -> Any:
+        if not isinstance(source, PlayerCommandSource):
+            source.reply(h.prtr("message.failure.not_player"))
             return None
-        return func(server, context, *args, **kwargs)
+        return func(source, context, *args, **kwargs)
 
     return wrapper
 
