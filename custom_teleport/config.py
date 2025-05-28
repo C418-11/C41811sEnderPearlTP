@@ -25,7 +25,8 @@ type Real = int | float
 
 PluginConfigPool = ConfigPool(root_path="./config")
 
-UserPermission: str | int = PermissionLevel.NAMES[1]
+UserPermission: str = PermissionLevel.NAMES[1]
+AdminPermission: str = PermissionLevel.NAMES[2]
 
 
 def _build_default_tp_cmd_cfg(syntax: str) -> dict[str, Any]:
@@ -101,7 +102,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
     },
     "commands": {
-        "teleport-to-player": _build_default_tp_cmd_cfg("!!tp 2 <player>"),
+        "help": _build_default_cmd_cfg("!!tp"),
+
+        "teleport-to-player": _build_default_tp_cmd_cfg("!!tp 2 <online-player>"),
         "teleport-to-home": _build_default_tp_cmd_cfg("!!tp home"),
         "teleport-to-home-with-name": {
             "use-optional-usage": True,
@@ -119,6 +122,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
             **_build_default_tp_cmd_cfg("!!tp set home <new-home>"),
         },
         "set-waypoint": _build_default_tp_cmd_cfg("!!tp set wp <new-waypoint>"),
+
+        "list-home": _build_default_cmd_cfg("!!tp list home <page>"),
+        "list-home-with-player": {
+            "use-optional-usage": True,
+            **_build_default_cmd_cfg("!!tp list home <player> <page>"),
+            "permission": FieldDef(OptionalPermission, AdminPermission),
+        },
     },
 }
 
@@ -150,7 +160,7 @@ class CommandConfigWithCost(CommandConfig):
         cls.CostStrategy = None if (strategy := config.get("cost_strategy")) is None else create_cost_strategy(strategy)
 
 
-class CommandConfigWithName(CommandConfig):
+class CommandConfigWithOptionalUsage(CommandConfig):
     UseOptionalUsage: bool
 
     @classmethod
@@ -166,13 +176,16 @@ class Config:
     Permission: PermissionLevelItem
     CostStrategy: CostStrategy
 
+    class Help(CommandConfig):
+        ...
+
     class TeleportToPlayer(CommandConfigWithCost):
         ...
 
     class TeleportToHome(CommandConfigWithCost):
         ...
 
-    class TeleportToHomeWithName(CommandConfigWithCost, CommandConfigWithName):
+    class TeleportToHomeWithName(CommandConfigWithCost, CommandConfigWithOptionalUsage):
         ...
 
     class TeleportToWaypoint(CommandConfigWithCost):
@@ -186,7 +199,7 @@ class Config:
             super().initialize(config)
             cls.DefaultHomeName = config.retrieve("default-home-name")
 
-    class SetHomeWithName(CommandConfigWithCost, CommandConfigWithName):
+    class SetHomeWithName(CommandConfigWithCost, CommandConfigWithOptionalUsage):
         MaximumHomes: float  # 采用float，因为整数没有 Infinity
 
         @classmethod
@@ -195,7 +208,12 @@ class Config:
             cls.MaximumHomes = float(config.retrieve("maximum-homes"))
 
     class SetWaypoint(CommandConfigWithCost):
+        ...
 
+    class ListHome(CommandConfig):
+        ...
+
+    class ListHomeWithPlayer(CommandConfigWithOptionalUsage):
         ...
 
     @classmethod
@@ -208,6 +226,8 @@ class Config:
         cls.Permission = cls.Config.retrieve("$global\\.permission")
         cls.CostStrategy = create_cost_strategy(cls.Config.retrieve("$global\\.cost_strategy"))
 
+        cls.Help.initialize(cls.Config.retrieve("commands\\.help"))
+
         cls.TeleportToPlayer.initialize(cls.Config.retrieve("commands\\.teleport-to-player"))
         cls.TeleportToHome.initialize(cls.Config.retrieve("commands\\.teleport-to-home"))
         cls.TeleportToHomeWithName.initialize(cls.Config.retrieve("commands\\.teleport-to-home-with-name"))
@@ -216,6 +236,9 @@ class Config:
         cls.SetHome.initialize(cls.Config.retrieve("commands\\.set-home"))
         cls.SetHomeWithName.initialize(cls.Config.retrieve("commands\\.set-home-with-name"))
         cls.SetWaypoint.initialize(cls.Config.retrieve("commands\\.set-waypoint"))
+
+        cls.ListHome.initialize(cls.Config.retrieve("commands\\.list-home"))
+        cls.ListHomeWithPlayer.initialize(cls.Config.retrieve("commands\\.list-home-with-player"))
 
 
 def _permission_getter(getter: Callable[[], PermissionLevelItem | None]) -> Callable[[], PermissionLevelItem]:
@@ -228,12 +251,14 @@ def _strategy_getter(getter: Callable[[], CostStrategy | None]) -> Callable[[], 
 
 def _use_optional_usage(
         cfg_cls: type[CommandConfig],
-        with_name_cfg: type[CommandConfigWithName],
+        with_name_cfg: type[CommandConfigWithOptionalUsage],
 ) -> Callable[[], bool]:
     return lambda: (cfg_cls.Enabled and with_name_cfg.Enabled and with_name_cfg.UseOptionalUsage)
 
 
 # ---- 权限 -------------------------------------------------
+HELP_PERM = _permission_getter(lambda: Config.Help.Permission)
+
 TP2PLAYER_PERM = _permission_getter(lambda: Config.TeleportToPlayer.Permission)
 TP2HOME_PERM = _permission_getter(lambda: Config.TeleportToHome.Permission)
 TP2HOME_WITH_NAME_PERM = _permission_getter(lambda: Config.TeleportToHomeWithName.Permission)
@@ -242,6 +267,9 @@ TP2WAYPOINT_PERM = _permission_getter(lambda: Config.TeleportToWaypoint.Permissi
 SET_HOME_PERM = _permission_getter(lambda: Config.SetHome.Permission)
 SET_HOME_WITH_NAME_PERM = _permission_getter(lambda: Config.SetHomeWithName.Permission)
 SET_WAYPOINT_PERM = _permission_getter(lambda: Config.SetWaypoint.Permission)
+
+LIST_HOME_PERM = _permission_getter(lambda: Config.ListHome.Permission)
+LIST_HOME_WITH_PLAYER_PERM = _permission_getter(lambda: Config.ListHomeWithPlayer.Permission)
 
 # ---- 成本策略 -----------------------------------------------
 TP2PLAYER_STRATEGY = _strategy_getter(lambda: Config.TeleportToPlayer.CostStrategy)
@@ -256,9 +284,12 @@ SET_WAYPOINT_STRATEGY = _strategy_getter(lambda: Config.SetWaypoint.CostStrategy
 # ---- 翻译 -------------------------------------------------
 TP2HOME_USE_OPTIONAL_USAGE = _use_optional_usage(Config.TeleportToHome, Config.TeleportToHomeWithName)
 SET_HOME_USE_OPTIONAL_USAGE = _use_optional_usage(Config.SetHome, Config.SetHomeWithName)
+LIST_HOME_USE_OPTIONAL_USAGE = _use_optional_usage(Config.ListHome, Config.ListHomeWithPlayer)
 
 __all__ = (
     # 权限
+    "HELP_PERM",
+
     "TP2PLAYER_PERM",
     "TP2HOME_PERM",
     "TP2HOME_WITH_NAME_PERM",
@@ -267,6 +298,9 @@ __all__ = (
     "SET_HOME_PERM",
     "SET_HOME_WITH_NAME_PERM",
     "SET_WAYPOINT_PERM",
+
+    "LIST_HOME_PERM",
+    "LIST_HOME_WITH_PLAYER_PERM",
 
     # 成本策略
     "TP2PLAYER_STRATEGY",
@@ -281,9 +315,10 @@ __all__ = (
     # 翻译
     "TP2HOME_USE_OPTIONAL_USAGE",
     "SET_HOME_USE_OPTIONAL_USAGE",
+    "LIST_HOME_USE_OPTIONAL_USAGE",
 
     "CommandConfig",
     "CommandConfigWithCost",
-    "CommandConfigWithName",
+    "CommandConfigWithOptionalUsage",
     "Config",
 )

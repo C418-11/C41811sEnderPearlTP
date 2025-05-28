@@ -80,13 +80,17 @@ class PlayerName(DynamicEnumeration):
     玩家名参数
     """
 
+    def __init__(self, name: str, require_online: bool = False, **kwargs):
+        super().__init__(name, **kwargs)
+        self.require_online = require_online
+
     @override
     def _get_suggestions(self, context: CommandContext) -> Iterable[str]:
         return online_player_api.get_player_list()
 
     @override
     def _parse_validate(self, value: str) -> None:
-        if not online_player_api.check_online(value):
+        if self.require_online and not online_player_api.check_online(value):
             raise InvalidPlayerName(value, player_name=value)
 
 

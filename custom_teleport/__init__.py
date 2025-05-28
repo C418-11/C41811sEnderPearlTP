@@ -3,6 +3,7 @@
 
 import itertools
 from collections.abc import Callable
+from functools import partial
 from types import ModuleType
 
 from C41811.Config.utils import Ref  # type: ignore[attr-defined]
@@ -169,7 +170,7 @@ def set_waypoint(server: PlayerCommandSource, context: CommandContext) -> None:
     ...  # todo implement
 
 
-def _help(src: CommandSource) -> None:
+def _help(src: CommandSource, _: CommandContext) -> None:
     src.reply(h.prtr("help.teleport"))
 
     def _show(perm: Callable[[], bool], translate_key: str) -> bool:
@@ -225,8 +226,9 @@ def _help(src: CommandSource) -> None:
 def _register_commands() -> None:
     builder = SimpleCommandBuilder()  # type: ignore[no-untyped-call]
     builder.arg("player", PlayerName)
-    builder.arg("home", lambda name: HomeName(name, labels=Ref(HOMES)))
-    builder.arg("waypoint", lambda name: WaypointName(name, labels=Ref(WAYPOINTS)))
+    builder.arg("online-player", partial(PlayerName, require_online=True))
+    builder.arg("home", partial(HomeName, labels=Ref(HOMES)))
+    builder.arg("waypoint", partial(WaypointName, labels=Ref(WAYPOINTS)))
 
     builder.arg("new-home", Text)
     builder.arg("new-waypoint", Text)
@@ -235,7 +237,8 @@ def _register_commands() -> None:
         if cfg.Enabled:
             builder.command(cfg.Syntax, handler)
 
-    builder.command("!!tp", _help)
+    _reg(Config.Help, _help)
+
     _reg(Config.TeleportToPlayer, tp2player)
     _reg(Config.TeleportToHome, tp2home)
     _reg(Config.TeleportToHomeWithName, tp2home)

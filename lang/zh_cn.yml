@@ -26,6 +26,12 @@ custom_teleport:
         " 设置新家：§b!!tp set home §7[家]§r"
       set_waypoint: |
         " 设置新路径点：§b!!tp set wp §7<路径点>§r"
+      list_homes: |
+        " 列出所有家：§b!!tp homes §7[页码]§r"
+      list_homes_with_player: |
+        " 列出所有家：§b!!tp homes §7<玩家> [页码]§r"
+      list_homes_optional_player: |
+        " 列出所有家：§b!!tp homes §7[玩家] [页码]§r"
 
   unit:
     experience:
