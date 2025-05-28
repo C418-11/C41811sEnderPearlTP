@@ -40,7 +40,7 @@ def create_cost_strategy(config: Mapping[str, Any]) -> CostStrategy:
     # noinspection PyArgumentList
     composite_cost = CONSUMPTION_TYPES[consumption_cfg["type"]](**get_params(consumption_cfg))
 
-    # 构建处理函数（保持不变）
+    # 构建处理函数  # todo use Position instead of Vec3
     def calculate_commands(start: Vec3, end: Vec3, resource_state: ResourceState) -> list[Command]:
         """
         计算命令

@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 
 
+import dataclasses
 import itertools
 from collections.abc import Callable
 from functools import partial
 from types import ModuleType
+from typing import Any
 
 from C41811.Config.utils import Ref  # type: ignore[attr-defined]
 from mcdreforged.api.decorator import new_thread
 from mcdreforged.command.builder.common import CommandContext
-from mcdreforged.command.builder.nodes.arguments import Text
 from mcdreforged.command.builder.tools import SimpleCommandBuilder
 from mcdreforged.command.command_source import CommandSource
 from mcdreforged.command.command_source import PlayerCommandSource
@@ -21,6 +22,7 @@ from .command_nodes import WaypointName
 from .config import CommandConfig
 from .config import Config
 from .config import LIST_HOME_PERM
+from .config import LIST_HOME_USE_OPTIONAL_USAGE
 from .config import LIST_HOME_WITH_PLAYER_PERM
 from .config import SET_HOME_PERM
 from .config import SET_HOME_STRATEGY
@@ -36,7 +38,7 @@ from .config import TP2HOME_WITH_NAME_STRATEGY
 from .config import TP2PLAYER_PERM
 from .config import TP2PLAYER_STRATEGY
 from .config import TP2WAYPOINT_PERM
-from .cost_strategy import Vec3
+from .cost_strategy import Position
 from .helper import h
 from .helper import initialize as init_helper
 from .plugins_api import initialize as init_api
@@ -64,13 +66,12 @@ def tp2player(source: PlayerCommandSource, context: CommandContext) -> None:
         return
 
     # 获取玩家信息
-    start = minecraft_data_api.get_player_coordinate(player)
     end = minecraft_data_api.get_player_coordinate(target)
     resources = minecraft_data_api.get_resource_state(player)
-
-    if start is None or end is None or resources is None:
+    if end is None or resources is None:
         source.reply(h.prtr("message.failure.unknown"))
         return
+    start = resources.position.coordinate
 
     # 计算消耗命令
     player_cost_strategy = TP2PLAYER_STRATEGY()
@@ -82,8 +83,8 @@ def tp2player(source: PlayerCommandSource, context: CommandContext) -> None:
     source.reply(h.prtr("message.success.to_player", target=target))
 
 
-HOMES: dict[str | None, dict[str, Vec3]] = {}
-WAYPOINTS: dict[str | None, dict[str, Vec3]] = {}
+HOMES: dict[str | None, dict[str, Position]] = {}
+WAYPOINTS: dict[str | None, dict[str, Position]] = {}
 
 
 @new_thread("tp2home")  # type: ignore[misc]
@@ -91,9 +92,10 @@ WAYPOINTS: dict[str | None, dict[str, Vec3]] = {}
 @player_only
 @suppress
 def tp2home(source: PlayerCommandSource, context: CommandContext) -> None:
-    is_with_name = context.get("new-home") is not None
+    is_with_name: bool = context.get("new-home") is not None
+    homes: set[str] = set(itertools.chain(*get_labels(HOMES, source.player)))
 
-    homes = set(itertools.chain(*get_labels(HOMES, source.player)))
+    # 检查是否有家
     try:
         home_name = next(iter(homes))
     except StopIteration:
@@ -102,17 +104,19 @@ def tp2home(source: PlayerCommandSource, context: CommandContext) -> None:
     if not is_with_name and Config.SetHome.DefaultHomeName in homes:
         home_name = Config.SetHome.DefaultHomeName
 
-    # 获取玩家信息
-    start = minecraft_data_api.get_player_coordinate(source.player)
-    target = get_label_value(HOMES, home_name, source.player)
-    resources = minecraft_data_api.get_resource_state(source.player)
-
-    if target is None:
+    # 获取家位置
+    position = get_label_value(HOMES, home_name, source.player)
+    if position is None:
         source.reply(h.prtr("message.failure.argument.not_found.home"))
         return
-    if start is None or resources is None:
+
+    # 获取玩家信息
+    target = position.coordinate
+    resources = minecraft_data_api.get_resource_state(source.player)
+    if resources is None:
         source.reply(h.prtr("message.failure.unknown"))
         return
+    start = resources.position.coordinate
 
     # 计算传送费用
     player_cost_strategy = TP2HOME_WITH_NAME_STRATEGY() if is_with_name else TP2HOME_STRATEGY()
@@ -120,8 +124,11 @@ def tp2home(source: PlayerCommandSource, context: CommandContext) -> None:
     execute_commands(source.player, commands)
 
     # 传送
-    h.server.execute(f"tp {source.player} {target.x} {target.y} {target.z}")
-    source.reply(h.prtr("message.success.to_home", home_name=home_name))
+    h.server.execute(
+        f"execute in {position.dimension} run"
+        f" tp {source.player} {target.x} {target.y} {target.z} {position.rotation.yaw} {position.rotation.pitch}"
+    )
+    source.reply(h.prtr("message.success.to_home", home=home_name))
 
 
 @new_thread("tp2waypoint")  # type: ignore[misc]
@@ -134,10 +141,10 @@ def tp2waypoint(source: PlayerCommandSource, context: CommandContext) -> None:
 
 @new_thread("set-home")  # type: ignore[misc]
 @permission_check_wrapper((SET_HOME_PERM, SET_HOME_WITH_NAME_PERM))
-@player_only
+@player_only  # todo not player only
 @suppress
 def set_home(source: PlayerCommandSource, context: CommandContext) -> None:
-    is_with_name = context.get("new-home", None) is not None
+    is_with_name: bool = context.get("new-home") is not None
     home_name = context.get("new-home", Config.SetHome.DefaultHomeName)
 
     has_home = home_name in set(itertools.chain(*get_labels(HOMES, source.player)))
@@ -148,12 +155,11 @@ def set_home(source: PlayerCommandSource, context: CommandContext) -> None:
 
     # 获取玩家信息
     start = Config.SpawnPoint
-    target = minecraft_data_api.get_player_coordinate(source.player)
     resources = minecraft_data_api.get_resource_state(source.player)
-
-    if target is None or resources is None:
+    if resources is None:
         source.reply(h.prtr("message.failure.unknown"))
         return
+    target = resources.position.coordinate
 
     # 计算消耗命令
     player_cost_strategy = SET_HOME_WITH_NAME_STRATEGY() if is_with_name else SET_HOME_STRATEGY()
@@ -161,8 +167,8 @@ def set_home(source: PlayerCommandSource, context: CommandContext) -> None:
     execute_commands(source.player, commands)
 
     # 设置家
-    HOMES.setdefault(source.player, {})[home_name] = target
-    source.reply(h.prtr("message.success.set_home", home_name=home_name))
+    HOMES.setdefault(source.player, {})[home_name] = resources.position
+    source.reply(h.prtr("message.success.set_home", home=home_name))
 
 
 @new_thread("set-waypoint")  # type: ignore[misc]
@@ -175,10 +181,45 @@ def set_waypoint(source: PlayerCommandSource, context: CommandContext) -> None:
 
 @new_thread("list-home")  # type: ignore[misc]
 @permission_check_wrapper((LIST_HOME_PERM, LIST_HOME_WITH_PLAYER_PERM))
-@player_only
 @suppress
-    ...  # todo implement
-def list_home(source: PlayerCommandSource, context: CommandContext) -> None:
+def list_homes(source: CommandSource, context: CommandContext) -> None:
+    is_with_player: bool = context.get("player") is not None
+    player: str | None = context.get("player", getattr(source, "player", None))
+
+    public: set[str]
+    private: set[str]
+    public, private = get_labels(HOMES, player)
+    if not (is_with_player or public or private):  # 如果是列出自己的且自己一个家都没
+        source.reply(h.prtr("message.success.list_homes.empty"))
+        return
+    elif is_with_player and not private:  # 如果列出别人的且别人没自己的家
+        source.reply(h.prtr("message.success.list_homes.empty", player=player))
+        return
+
+    source.reply(h.prtr("message.success.list_homes.header", player=player))
+    if not is_with_player:
+        for home in public:
+            kwargs: dict[str, Any] = {"home": home}
+            position = get_label_value(HOMES, home, player)
+            if position is None:
+                source.reply(h.prtr("message.failure.unknown"))  # todo error message
+                continue
+            kwargs |= dataclasses.asdict(position.coordinate)
+            kwargs |= dataclasses.asdict(position.rotation)
+            kwargs["dimension"] = position.dimension
+            source.reply(h.prtr("message.success.list_homes.entry.public", **kwargs))
+
+    for home in private:
+        kwargs: dict[str, Any] = {"home": home}
+        position = get_label_value(HOMES, home, player)
+        if position is None:
+            source.reply(h.prtr("message.failure.unknown"))  # todo error message
+            continue
+        kwargs |= dataclasses.asdict(position.coordinate)
+        kwargs |= dataclasses.asdict(position.rotation)
+        kwargs["dimension"] = position.dimension
+        source.reply(h.prtr("message.success.list_homes.entry.private", **kwargs))
+    source.reply(h.prtr("message.success.list_homes.footer"))
 
 
 def _help(source: CommandSource, _: CommandContext) -> None:
@@ -229,6 +270,13 @@ def _help(source: CommandSource, _: CommandContext) -> None:
         SET_HOME_WITH_NAME_PERM, "help.usage.set_home_with_name",
     )
 
+    # ---- List Homes ----------------------------
+    _show_optional_usage(
+        LIST_HOME_USE_OPTIONAL_USAGE, "help.usage.list_homes_optional_name",
+        LIST_HOME_PERM, "help.usage.list_homes",
+        LIST_HOME_WITH_PLAYER_PERM, "help.usage.list_homes_with_player",
+    )
+
     # --- Waypoint ------------------------------
     _show(TP2WAYPOINT_PERM, "help.usage.to_waypoint")
     _show(SET_WAYPOINT_PERM, "help.usage.set_waypoint")
@@ -238,11 +286,11 @@ def _register_commands() -> None:
     builder = SimpleCommandBuilder()  # type: ignore[no-untyped-call]
     builder.arg("player", PlayerName)
     builder.arg("online-player", partial(PlayerName, require_online=True))
-    builder.arg("home", partial(HomeName, labels=Ref(HOMES)))
-    builder.arg("waypoint", partial(WaypointName, labels=Ref(WAYPOINTS)))
+    builder.arg("home", partial(HomeName, labels=Ref(HOMES), require_exists=True))
+    builder.arg("waypoint", partial(WaypointName, labels=Ref(WAYPOINTS), require_exists=True))
 
-    builder.arg("new-home", Text)
-    builder.arg("new-waypoint", Text)
+    builder.arg("new-home", partial(HomeName, labels=Ref(HOMES)))
+    builder.arg("new-waypoint", partial(WaypointName, labels=Ref(WAYPOINTS)))
 
     def _reg(cfg: type[CommandConfig], handler: Callable[[CommandSource, CommandContext], None]) -> None:
         if cfg.Enabled:
@@ -258,6 +306,9 @@ def _register_commands() -> None:
     _reg(Config.SetHome, set_home)
     _reg(Config.SetHomeWithName, set_home)
     _reg(Config.SetWaypoint, set_waypoint)
+
+    _reg(Config.ListHome, list_homes)
+    _reg(Config.ListHomeWithPlayer, list_homes)
 
     for cmd in builder.build():
         h.register_command("help.help", cmd)  # type: ignore[arg-type]

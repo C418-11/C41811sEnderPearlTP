@@ -7,7 +7,7 @@ from typing import Any
 from typing import Self
 
 import hjson  # type: ignore[import-not-found]
-import wrapt  # type: ignore[import-not-found]
+import wrapt  # type: ignore[import-untyped]
 
 type Command = str
 type CostStrategy = Callable[[Vec3, Vec3, ResourceState], list[Command]]
@@ -53,6 +53,19 @@ class Vec3:
     x: float
     y: float
     z: float
+
+
+@dataclass
+class Rotation:
+    yaw: float
+    pitch: float
+
+
+@dataclass
+class Position:
+    coordinate: Vec3
+    rotation: Rotation
+    dimension: str
 
 
 @dataclass
@@ -349,15 +362,18 @@ class Hunger:
                 self.level = 20
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ResourceState:
     """
     资源状态
     """
-    items: list[Item]
-    experience: Experience
-    hunger: Hunger
     health: float
+    hunger: Hunger
+    experience: Experience
+
+    position: Position
+
+    items: list[Item]
 
 
 __all__ = (
@@ -368,6 +384,9 @@ __all__ = (
     "CostStrategy",
 
     "Vec3",
+    "Rotation",
+    "Position",
+
     "Item",
     "Experience",
     "Hunger",

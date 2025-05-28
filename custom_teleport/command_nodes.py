@@ -99,9 +99,16 @@ class LabelName(DynamicEnumeration, ABC):
     标签名参数
     """
 
-    def __init__(self, name: str, labels: Ref[dict[str | None, dict[str, Any]]], **kwargs: Any):
+    def __init__(
+            self,
+            name: str,
+            labels: Ref[dict[str | None, dict[str, Any]]],
+            require_exists: bool = False,
+            **kwargs: Any,
+    ):
         super().__init__(name, **kwargs)
         self.labels = labels
+        self.require_exists = require_exists
 
     @override
     def _get_suggestions(self, context: CommandContext) -> Iterable[str]:
@@ -115,6 +122,8 @@ class LabelName(DynamicEnumeration, ABC):
 
     @override
     def _visit_validate(self, context: CommandContext, parse_result: ParseResult) -> None:
+        if not self.require_exists:
+            return
         labels = set(itertools.chain(*get_labels(self.labels.value, getattr(context.source, "player", None))))
         if parse_result.value not in labels:
             raise self._get_exception(parse_result)

@@ -8,7 +8,9 @@ from typing import Optional
 
 from mcdreforged.plugin.si.plugin_server_interface import PluginServerInterface
 
+from .cost_strategy import Position
 from .cost_strategy import Experience
+from .cost_strategy import Rotation
 from .cost_strategy import Hunger
 from .cost_strategy import Item
 from .cost_strategy import ResourceState
@@ -165,11 +167,18 @@ class MinecraftDataAPI:
                 player_data["foodExhaustionLevel"],
             )
 
+        def _get_position() -> Position:
+            coordinates = Vec3(*player_data["Pos"])
+            rotation = Rotation(*player_data["Rotation"])
+            dimension = player_data["Dimension"]
+            return Position(coordinates, rotation, dimension)
+
         return ResourceState(
-            _get_items(),
-            _get_experience(),
-            _get_hunger(),
-            player_data["Health"],
+            health=player_data["Health"],
+            hunger=_get_hunger(),
+            experience=_get_experience(),
+            position=_get_position(),
+            items=_get_items(),
         )
 
 

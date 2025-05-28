@@ -47,7 +47,7 @@ def _build_default_cmd_cfg(syntax: str) -> dict[str, Any]:
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "$global": {
+    "global": {
         "spawn_point": {"x": 0, "y": 64, "z": 0},
         "permission": FieldDef(str | int, UserPermission),
         "cost_strategy": {
@@ -123,10 +123,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         "set-waypoint": _build_default_tp_cmd_cfg("!!tp set wp <new-waypoint>"),
 
-        "list-home": _build_default_cmd_cfg("!!tp list home <page>"),
+        "list-home": _build_default_cmd_cfg("!!tp homes"),
         "list-home-with-player": {
             "use-optional-usage": True,
-            **_build_default_cmd_cfg("!!tp list home <player> <page>"),
+            **_build_default_cmd_cfg("!!tp homes <player>"),
             "permission": FieldDef(OptionalPermission, AdminPermission),
         },
     },
@@ -222,9 +222,9 @@ class Config:
         cls.Config = PluginConfigPool.require('', f"{h.pkg_name}.yaml", DEFAULT_CONFIG).check()
         # PluginConfigPool.save_all()  # todo save
 
-        cls.SpawnPoint = Vec3(**cls.Config.retrieve("$global\\.spawn_point"))
-        cls.Permission = cls.Config.retrieve("$global\\.permission")
-        cls.CostStrategy = create_cost_strategy(cls.Config.retrieve("$global\\.cost_strategy"))
+        cls.SpawnPoint = Vec3(**cls.Config.retrieve("global\\.spawn_point"))
+        cls.Permission = cls.Config.retrieve("global\\.permission")
+        cls.CostStrategy = create_cost_strategy(cls.Config.retrieve("global\\.cost_strategy"))
 
         cls.Help.initialize(cls.Config.retrieve("commands\\.help"))
 

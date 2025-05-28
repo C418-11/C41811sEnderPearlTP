@@ -1,37 +1,23 @@
 custom_teleport:
-  prefix: "§7[§6传送§7]§r"
+  prefix: §7[§6传送§7] §r
 
   help:
     help: 使用§b!!tp§r显示该插件的帮助信息
-    teleport: |
-      " 传送到指定目标"
+    teleport: 传送到指定目标
     usage:
-      to_player: |
-        " 传送到玩家：§b!!tp 2 §7<玩家名>§r"
-      to_location: |
-        " 传送到坐标：§b!!tp pos §7<x> <y> <z>§r"
-      to_waypoint: |
-        " 传送到路径点：§b!!tp wp §7<路径点>§r"
-      to_home: |
-        " 传送到家：§b!!tp home§r"
-      to_home_with_name: |
-        " 传送到家：§b!!tp home §7<家>§r"
-      to_home_optional_name: |
-        " 传送到家：§b!!tp home §7[家]§r"
-      set_home: |
-        " 设置新家：§b!!tp set home§r"
-      set_home_with_name: |
-        " 设置新家：§b!!tp set home §7<家>§r"
-      set_home_optional_name: |
-        " 设置新家：§b!!tp set home §7[家]§r"
-      set_waypoint: |
-        " 设置新路径点：§b!!tp set wp §7<路径点>§r"
-      list_homes: |
-        " 列出所有家：§b!!tp homes §7[页码]§r"
-      list_homes_with_player: |
-        " 列出所有家：§b!!tp homes §7<玩家> [页码]§r"
-      list_homes_optional_player: |
-        " 列出所有家：§b!!tp homes §7[玩家] [页码]§r"
+      list_homes: 列出所有家：§b!!tp homes §7[页码]§r
+      list_homes_optional_player: 列出所有家：§b!!tp homes §7[玩家] [页码]§r
+      list_homes_with_player: 列出所有家：§b!!tp homes §7<玩家> [页码]§r
+      set_home: 设置新家：§b!!tp set home§r
+      set_home_optional_name: 设置新家：§b!!tp set home §7[家]§r
+      set_home_with_name: 设置新家：§b!!tp set home §7<家>§r
+      set_waypoint: 设置新路径点：§b!!tp set wp §7<路径点>§r
+      to_home: 传送到家：§b!!tp home§r
+      to_home_optional_name: 传送到家：§b!!tp home §7[家]§r
+      to_home_with_name: 传送到家：§b!!tp home §7<家>§r
+      to_location: 传送到坐标：§b!!tp pos §7<x> <y> <z>§r
+      to_player: 传送到玩家：§b!!tp 2 §7<玩家名>§r
+      to_waypoint: 传送到路径点：§b!!tp wp §7<路径点>§r
 
   unit:
     experience:
@@ -64,4 +50,10 @@ custom_teleport:
       to_player: §a成功传送至玩家 §d§o{target}§r
       to_waypoint: §a成功传送至路径点 §6{target}§r
       set_home: §a成功设置家§r
-      set_home_with_name: §a成功设置家 §6{target}§r
+      list_homes:
+        empty: §7未记录任何家！§r
+        footer: §6---------§r
+        header: §6----家----§r
+        entry:
+          private: §7[私] §6{home} §7(§6{x:.2f} {y:.2f} {z:.2f}§7) [§6{dimension}§7]§r
+          public: §7[公] §6{home} §7(§6{x:.2f} {y:.2f} {z:.2f}§7) [§6{dimension}§7]§r

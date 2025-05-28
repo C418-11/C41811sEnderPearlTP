@@ -16,11 +16,16 @@ from .utils import CostStrategy
 from .utils import Experience
 from .utils import Hunger
 from .utils import Item
+from .utils import Position
 from .utils import ResourceState
+from .utils import Rotation
 from .utils import Vec3
 
 __all__ = (
     "Vec3",
+    "Rotation",
+    "Position",
+
     "Item",
     "Experience",
     "Hunger",
