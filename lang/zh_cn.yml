@@ -19,13 +19,13 @@ custom_teleport:
       to_home_optional_name: |
         " 传送到家：§b!!tp home §7[家]§r"
       set_home: |
-        " 设置家：§b!!tp set home§r"
+        " 设置新家：§b!!tp set home§r"
       set_home_with_name: |
-        " 设置家：§b!!tp set home §7<家>§r"
+        " 设置新家：§b!!tp set home §7<家>§r"
       set_home_optional_name: |
-        " 设置家：§b!!tp set home §7[家]§r"
+        " 设置新家：§b!!tp set home §7[家]§r"
       set_waypoint: |
-        " 设置路径点：§b!!tp set wp §7<路径点>§r"
+        " 设置新路径点：§b!!tp set wp §7<路径点>§r"
 
   unit:
     experience:

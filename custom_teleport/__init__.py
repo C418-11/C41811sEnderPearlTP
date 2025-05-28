@@ -2,6 +2,7 @@
 
 
 import itertools
+from collections.abc import Callable
 from types import ModuleType
 
 from C41811.Config.utils import Ref  # type: ignore[attr-defined]
@@ -16,6 +17,7 @@ from mcdreforged.plugin.si.plugin_server_interface import PluginServerInterface
 from .command_nodes import HomeName
 from .command_nodes import PlayerName
 from .command_nodes import WaypointName
+from .config import CommandConfig
 from .config import Config
 from .config import SET_HOME_PERM
 from .config import SET_HOME_STRATEGY
@@ -170,37 +172,54 @@ def set_waypoint(server: PlayerCommandSource, context: CommandContext) -> None:
 def _help(src: CommandSource) -> None:
     src.reply(h.prtr("help.teleport"))
 
+    def _show(perm: Callable[[], bool], translate_key: str) -> bool:
+        if permission_checker(perm())[0](src):
+            src.reply(h.prtr(translate_key))
+            return True
+        return False
+
+    def _show_optional_usage(
+            use_optional_usage: Callable[[], bool],
+            translate_key_with_optional_usage: str,
+            perm: Callable[[], bool],
+            translate_key: str,
+            perm_with_name: Callable[[], bool],
+            translate_key_with_name: str
+    ) -> bool:
+        has_perm = permission_checker(perm())[0](src)
+        has_perm_with_name = permission_checker(perm_with_name())[0](src)
+
+        if use_optional_usage() and has_perm and has_perm_with_name:
+            src.reply(h.prtr(translate_key_with_optional_usage))
+        elif has_perm or has_perm_with_name:
+            if has_perm:
+                src.reply(h.prtr(translate_key))
+            if has_perm_with_name:
+                src.reply(h.prtr(translate_key_with_name))
+        else:
+            return False
+        return True
+
     # ---- Player -------------------------------
-    if permission_checker(TP2PLAYER_PERM())[0](src):
-        src.reply(h.prtr("help.usage.to_player"))
+    _show(TP2PLAYER_PERM, "help.usage.to_player")
 
     # ---- Home ---------------------------------
-    allow_tp2home = permission_checker(TP2HOME_PERM())[0](src)
-    allow_tp2home_with_name = permission_checker(TP2HOME_WITH_NAME_PERM())[0](src)
-
-    if TP2HOME_USE_OPTIONAL_USAGE() and allow_tp2home and allow_tp2home_with_name:
-        src.reply(h.prtr("help.usage.to_home_optional_name"))
-    elif allow_tp2home:
-        src.reply(h.prtr("help.usage.to_home"))
-    elif allow_tp2home_with_name:
-        src.reply(h.prtr("help.usage.to_home_with_name"))
+    _show_optional_usage(
+        TP2HOME_USE_OPTIONAL_USAGE, "help.usage.to_home_optional_name",
+        TP2HOME_PERM, "help.usage.to_home",
+        TP2HOME_WITH_NAME_PERM, "help.usage.to_home_with_name",
+    )
 
     # ---- Set Home -----------------------------
-    allow_set_home = permission_checker(SET_HOME_PERM())[0](src)
-    allow_set_home_with_name = permission_checker(SET_HOME_WITH_NAME_PERM())[0](src)
-
-    if SET_HOME_USE_OPTIONAL_USAGE() and allow_set_home and allow_set_home_with_name:
-        src.reply(h.prtr("help.usage.set_home_optional_name"))
-    elif allow_set_home:
-        src.reply(h.prtr("help.usage.set_home"))
-    elif allow_set_home_with_name:
-        src.reply(h.prtr("help.usage.set_home_with_name"))
+    _show_optional_usage(
+        SET_HOME_USE_OPTIONAL_USAGE, "help.usage.set_home_optional_name",
+        SET_HOME_PERM, "help.usage.set_home",
+        SET_HOME_WITH_NAME_PERM, "help.usage.set_home_with_name",
+    )
 
     # --- Waypoint ------------------------------
-    if permission_checker(TP2WAYPOINT_PERM())[0](src):
-        src.reply(h.prtr("help.usage.to_waypoint"))
-    if permission_checker(SET_WAYPOINT_PERM())[0](src):
-        src.reply(h.prtr("help.usage.set_waypoint"))
+    _show(TP2WAYPOINT_PERM, "help.usage.to_waypoint")
+    _show(SET_WAYPOINT_PERM, "help.usage.set_waypoint")
 
 
 def _register_commands() -> None:
@@ -212,22 +231,19 @@ def _register_commands() -> None:
     builder.arg("new-home", Text)
     builder.arg("new-waypoint", Text)
 
-    builder.command("!!tp", _help)
-    if Config.TeleportToPlayer.Enabled:
-        builder.command(Config.TeleportToPlayer.Syntax, tp2player)
-    if Config.TeleportToHome.Enabled:
-        builder.command(Config.TeleportToHome.Syntax, tp2home)
-    if Config.TeleportToHomeWithName.Enabled:
-        builder.command(Config.TeleportToHomeWithName.Syntax, tp2home)
-    if Config.TeleportToWaypoint.Enabled:
-        builder.command(Config.TeleportToWaypoint.Syntax, tp2waypoint)
+    def _reg(cfg: type[CommandConfig], handler: Callable[[CommandSource, CommandContext], None]) -> None:
+        if cfg.Enabled:
+            builder.command(cfg.Syntax, handler)
 
-    if Config.SetHome.Enabled:
-        builder.command(Config.SetHome.Syntax, set_home)
-    if Config.SetHomeWithName.Enabled:
-        builder.command(Config.SetHomeWithName.Syntax, set_home)
-    if Config.SetWaypoint.Enabled:
-        builder.command(Config.SetWaypoint.Syntax, set_waypoint)
+    builder.command("!!tp", _help)
+    _reg(Config.TeleportToPlayer, tp2player)
+    _reg(Config.TeleportToHome, tp2home)
+    _reg(Config.TeleportToHomeWithName, tp2home)
+    _reg(Config.TeleportToWaypoint, tp2waypoint)
+
+    _reg(Config.SetHome, set_home)
+    _reg(Config.SetHomeWithName, set_home)
+    _reg(Config.SetWaypoint, set_waypoint)
 
     for cmd in builder.build():
         h.register_command("help.help", cmd)  # type: ignore[arg-type]

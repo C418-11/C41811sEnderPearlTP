@@ -37,6 +37,14 @@ def _build_default_tp_cmd_cfg(syntax: str) -> dict[str, Any]:
     }
 
 
+def _build_default_cmd_cfg(syntax: str) -> dict[str, Any]:
+    return {
+        "enabled": True,
+        "syntax": syntax,
+        "permission": FieldDef(OptionalPermission, None),
+    }
+
+
 DEFAULT_CONFIG: dict[str, Any] = {
     "$global": {
         "spawn_point": {"x": 0, "y": 64, "z": 0},
@@ -123,7 +131,6 @@ class CommandConfig:
     Enabled: bool
     Syntax: str
     Permission: Optional[PermissionLevelItem] = None
-    CostStrategy: Optional[CostStrategy] = None
 
     @classmethod
     def initialize(cls, config: MCD) -> None:
@@ -132,7 +139,24 @@ class CommandConfig:
         cls.Enabled = config.retrieve("enabled")
         cls.Syntax = config.retrieve("syntax")
         cls.Permission = None if (perm := config.get("permission")) is None else PermissionLevel.from_value(perm)
+
+
+class CommandConfigWithCost(CommandConfig):
+    CostStrategy: Optional[CostStrategy] = None
+
+    @classmethod
+    def initialize(cls, config: MCD) -> None:
+        super().initialize(config)
         cls.CostStrategy = None if (strategy := config.get("cost_strategy")) is None else create_cost_strategy(strategy)
+
+
+class CommandConfigWithName(CommandConfig):
+    UseOptionalUsage: bool
+
+    @classmethod
+    def initialize(cls, config: MCD) -> None:
+        super().initialize(config)
+        cls.UseOptionalUsage = config.retrieve("use-optional-usage")
 
 
 class Config:
@@ -142,24 +166,19 @@ class Config:
     Permission: PermissionLevelItem
     CostStrategy: CostStrategy
 
-    class TeleportToPlayer(CommandConfig):
+    class TeleportToPlayer(CommandConfigWithCost):
         ...
 
-    class TeleportToHome(CommandConfig):
+    class TeleportToHome(CommandConfigWithCost):
         ...
 
-    class TeleportToHomeWithName(CommandConfig):
-        UseOptionalUsage: bool
-
-        @classmethod
-        def initialize(cls, config: MCD) -> None:
-            super().initialize(config)
-            cls.UseOptionalUsage = config.retrieve("use-optional-usage")
-
-    class TeleportToWaypoint(CommandConfig):
+    class TeleportToHomeWithName(CommandConfigWithCost, CommandConfigWithName):
         ...
 
-    class SetHome(CommandConfig):
+    class TeleportToWaypoint(CommandConfigWithCost):
+        ...
+
+    class SetHome(CommandConfigWithCost):
         DefaultHomeName: str
 
         @classmethod
@@ -167,17 +186,16 @@ class Config:
             super().initialize(config)
             cls.DefaultHomeName = config.retrieve("default-home-name")
 
-    class SetHomeWithName(CommandConfig):
+    class SetHomeWithName(CommandConfigWithCost, CommandConfigWithName):
         MaximumHomes: float  # 采用float，因为整数没有 Infinity
-        UseOptionalUsage: bool
 
         @classmethod
         def initialize(cls, config: MCD) -> None:
             super().initialize(config)
             cls.MaximumHomes = float(config.retrieve("maximum-homes"))
-            cls.UseOptionalUsage = config.retrieve("use-optional-usage")
 
-    class SetWaypoint(CommandConfig):
+    class SetWaypoint(CommandConfigWithCost):
+
         ...
 
     @classmethod
@@ -210,7 +228,7 @@ def _strategy_getter(getter: Callable[[], CostStrategy | None]) -> Callable[[], 
 
 def _use_optional_usage(
         cfg_cls: type[CommandConfig],
-        with_name_cfg: type[Config.TeleportToHomeWithName] | type[Config.SetHomeWithName],
+        with_name_cfg: type[CommandConfigWithName],
 ) -> Callable[[], bool]:
     return lambda: (cfg_cls.Enabled and with_name_cfg.Enabled and with_name_cfg.UseOptionalUsage)
 
@@ -264,5 +282,8 @@ __all__ = (
     "TP2HOME_USE_OPTIONAL_USAGE",
     "SET_HOME_USE_OPTIONAL_USAGE",
 
+    "CommandConfig",
+    "CommandConfigWithCost",
+    "CommandConfigWithName",
     "Config",
 )
