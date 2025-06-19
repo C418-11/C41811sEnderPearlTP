@@ -46,7 +46,7 @@ class LinearCost(CostCalculator):
     """
     线性消耗计算器
     """
-    base: float = field(default=1)
+    base: float = field(default=0)
 
     def compute(self, distance: float) -> float:
         return limit_value(self.base + distance * self.scale, self.min_cost, self.max_cost)

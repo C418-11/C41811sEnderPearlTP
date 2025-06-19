@@ -10,7 +10,10 @@ import hjson  # type: ignore[import-not-found]
 import wrapt  # type: ignore[import-untyped]
 
 type Command = str
-type CostStrategy = Callable[[Vec3, Vec3, ResourceState], list[Command]]
+type CostStrategy = Callable[[Position, Position, ResourceState], list[Command]]
+"""
+Callable[[起始位置, 目标位置, 资源状态], 指令列表]
+"""
 
 
 def limit_value(val: float, min_val: float, max_val: float, scale: float = 1) -> float:

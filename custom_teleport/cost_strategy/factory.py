@@ -10,8 +10,8 @@ from .cost_calculation import COST_TYPES
 from .distance import DISTANCE_TYPES
 from .utils import Command
 from .utils import CostStrategy
+from .utils import Position
 from .utils import ResourceState
-from .utils import Vec3
 from .utils import get_params
 
 
@@ -26,7 +26,7 @@ def create_cost_strategy(config: Mapping[str, Any]) -> CostStrategy:
     :rtype: CostStrategy
     """
     # 初始化距离计算器
-    distance_cfg = config.get("distance", {"type": "euclidean"})
+    distance_cfg = config.get("distance", {"type": "fixed"})
     # noinspection PyArgumentList
     distance_calculator = DISTANCE_TYPES[distance_cfg["type"]](**get_params(distance_cfg))
 
@@ -40,15 +40,15 @@ def create_cost_strategy(config: Mapping[str, Any]) -> CostStrategy:
     # noinspection PyArgumentList
     composite_cost = CONSUMPTION_TYPES[consumption_cfg["type"]](**get_params(consumption_cfg))
 
-    # 构建处理函数  # todo use Position instead of Vec3
-    def calculate_commands(start: Vec3, end: Vec3, resource_state: ResourceState) -> list[Command]:
+    # 构建处理函数
+    def calculate_commands(start: Position, end: Position, resource_state: ResourceState) -> list[Command]:
         """
         计算命令
 
         :param start: 起始位置
-        :type start: Vec3
+        :type start: Position
         :param end: 终止位置
-        :type end: Vec3
+        :type end: Position
         :param resource_state: 资源状态，默认深拷贝防止意外更改
         :type resource_state: ResourceState
 
@@ -77,7 +77,6 @@ SAMPLE_CONFIG = {
         "rate": 1.2
     },
 }
-
 
 __all__ = (
     "create_cost_strategy",

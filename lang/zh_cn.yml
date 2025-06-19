@@ -5,9 +5,12 @@ custom_teleport:
     help: 使用§b!!tp§r显示该插件的帮助信息
     teleport: 传送到指定目标
     usage:
-      list_homes: 列出所有家：§b!!tp homes §7[页码]§r
-      list_homes_optional_player: 列出所有家：§b!!tp homes §7[玩家] [页码]§r
-      list_homes_with_player: 列出所有家：§b!!tp homes §7<玩家> [页码]§r
+      accept_request: 接受传送请求：§b!!tp accept§r
+      deny_request: 拒绝传送请求：§b!!tp deny§r
+      list_homes: 列出所有家：§b!!tp homes§r
+      list_homes_optional_player: 列出所有家：§b!!tp homes §7[玩家]§r
+      list_homes_with_player: 列出所有家：§b!!tp homes §7<玩家>§r
+      send_request: 请求传送到玩家：§b!!tp 2 §7<玩家名>§r
       set_home: 设置新家：§b!!tp set home§r
       set_home_optional_name: 设置新家：§b!!tp set home §7[家]§r
       set_home_with_name: 设置新家：§b!!tp set home §7<家>§r
@@ -16,7 +19,7 @@ custom_teleport:
       to_home_optional_name: 传送到家：§b!!tp home §7[家]§r
       to_home_with_name: 传送到家：§b!!tp home §7<家>§r
       to_location: 传送到坐标：§b!!tp pos §7<x> <y> <z>§r
-      to_player: 传送到玩家：§b!!tp 2 §7<玩家名>§r
+      to_player: 传送到玩家：§b!!tp f2 §7<玩家名>§r
       to_waypoint: 传送到路径点：§b!!tp wp §7<路径点>§r
 
   unit:
@@ -35,21 +38,21 @@ custom_teleport:
         items: §c物品不足§r：§7可用价值 §6{available:.2f}§7，§c需求价值 §6{required:.2f}§r
         experience: §c经验不足§r：§7可用 §6{available:.2f}{strategy}§7，§c需求 §6{required:.2f}{strategy}§r
         hunger: §c饥饿度不足§r：§7可用 §6{available:.2f}点§7，§c需求 §6{required:.2f}点§r
+      timeout:
+        from: §c来自 §d§o{target} §c的传送请求已超时！
+        to: §c传送至 §d§o{target} §c的请求已超时！
+      no_request: §c没有传送请求！§r
       no_permission: §c权限不足§r
       not_player: §c只有玩家可以执行此命令！§r
-      tp_self: §c你不能传送到你自己！§r
       too_many_homes: §c家数量已达到上限！§r
+      request_already_sent: §c你已向 §d§o{target} §c发送传送请求，重复的操作！
+      tp_self: §c你不能传送到你自己！§r
       unknown: §c未知错误！§r
     success:
       cost:
         items: §7消耗 §6{items}§7(§6{cost:.2f}§7) 价值物品§r
         experience: §7消耗 §6{cost:.2f}{strategy}§7 经验§r
         hunger: §7消耗 §6{cost:.2f}点§7 饥饿度§r
-      to_home: §a欢迎回家！§r
-      to_location: §a成功传送至坐标 §6{x} {y} {z}§r
-      to_player: §a成功传送至玩家 §d§o{target}§r
-      to_waypoint: §a成功传送至路径点 §6{target}§r
-      set_home: §a成功设置家§r
       list_homes:
         empty: §7未记录任何家！§r
         footer: §6---------§r
@@ -57,3 +60,12 @@ custom_teleport:
         entry:
           private: §7[私] §6{home} §7(§6{x:.2f} {y:.2f} {z:.2f}§7) [§6{dimension}§7]§r
           public: §7[公] §6{home} §7(§6{x:.2f} {y:.2f} {z:.2f}§7) [§6{dimension}§7]§r
+      request_sent: §a成功向 §d§o{target} §a发送传送请求！§r
+      request_received: §a收到来自 §d§o{target} §a的传送请求！
+      set_home: §a成功设置家§r
+      set_home_with_name: §a成功设置家 §6{home}§r
+      to_home: §a欢迎回家！§r
+      to_home_with_name: §a欢迎回家 §6{home}§a！§r
+      to_location: §a成功传送至坐标 §6{x} {y} {z}§r
+      to_player: §a成功传送至玩家 §d§o{target}§r
+      to_waypoint: §a成功传送至路径点 §6{target}§r

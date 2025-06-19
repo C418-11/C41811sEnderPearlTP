@@ -12,10 +12,12 @@ from C41811.Config.processor.RuamelYaml import RuamelYamlSL
 from mcdreforged.permission.permission_level import PermissionLevel
 from mcdreforged.permission.permission_level import PermissionLevelItem
 
+from .cost_strategy import Rotation
 from .cost_strategy import CheckStrategy
 from .cost_strategy import CostStrategy
 from .cost_strategy import ItemConsumeStrategy
 from .cost_strategy import PassStrategy
+from .cost_strategy import Position
 from .cost_strategy import Vec3
 from .cost_strategy import create_cost_strategy
 from .helper import h
@@ -29,26 +31,35 @@ UserPermission: str = PermissionLevel.NAMES[1]
 AdminPermission: str = PermissionLevel.NAMES[2]
 
 
-def _build_default_tp_cmd_cfg(syntax: str) -> dict[str, Any]:
+def _build_default_tp_cmd_cfg(
+        syntax: str,
+        *,
+        perm: OptionalPermission = None,
+        cost_strategy: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     return {
         "enabled": True,
         "syntax": syntax,
-        "permission": FieldDef(OptionalPermission, None),
-        "cost_strategy": FieldDef(Optional[dict[str, Any]], None),
+        "permission": FieldDef(OptionalPermission, perm),
+        "cost_strategy": FieldDef(Optional[dict[str, Any]], cost_strategy),
     }
 
 
-def _build_default_cmd_cfg(syntax: str) -> dict[str, Any]:
+def _build_default_cmd_cfg(syntax: str, *, perm: OptionalPermission = None) -> dict[str, Any]:
     return {
         "enabled": True,
         "syntax": syntax,
-        "permission": FieldDef(OptionalPermission, None),
+        "permission": FieldDef(OptionalPermission, perm),
     }
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "global": {
-        "spawn_point": {"x": 0, "y": 64, "z": 0},
+        "spawn_point": {
+            "coordinate": {"x": 0, "y": 64, "z": 0},
+            "rotation": {"yaw": 0, "pitch": 0},
+            "dimension": "minecraft:overworld",
+        },
         "permission": FieldDef(str | int, UserPermission),
         "cost_strategy": {
             "distance": {"type": "euclidean"},
@@ -104,7 +115,17 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "commands": {
         "help": _build_default_cmd_cfg("!!tp"),
 
-        "teleport-to-player": _build_default_tp_cmd_cfg("!!tp 2 <online-player>"),
+        "teleport-to-player": _build_default_tp_cmd_cfg(
+            "!!tp f2 <online-player>",
+            perm=AdminPermission,
+            cost_strategy={}
+        ),
+        "send-teleport-request": {
+            "timeout": FieldDef(Real, 60),  # 秒
+            **_build_default_tp_cmd_cfg("!!tp 2 <online-player>"),
+        },
+        "accept-teleport-request": _build_default_cmd_cfg("!!tp accept"),
+        "deny-teleport-request": _build_default_cmd_cfg("!!tp deny"),
         "teleport-to-home": _build_default_tp_cmd_cfg("!!tp home"),
         "teleport-to-home-with-name": {
             "use-optional-usage": True,
@@ -117,7 +138,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             **_build_default_tp_cmd_cfg("!!tp set home"),
         },
         "set-home-with-name": {
-            "maximum-homes": 1,
+            "maximum-homes": FieldDef(Real, float("inf")),
             "use-optional-usage": True,
             **_build_default_tp_cmd_cfg("!!tp set home <new-home>"),
         },
@@ -126,8 +147,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "list-home": _build_default_cmd_cfg("!!tp homes"),
         "list-home-with-player": {
             "use-optional-usage": True,
-            **_build_default_cmd_cfg("!!tp homes <player>"),
-            "permission": FieldDef(OptionalPermission, AdminPermission),
+            **_build_default_cmd_cfg("!!tp homes <player>", perm=AdminPermission),
         },
     },
 }
@@ -172,7 +192,7 @@ class CommandConfigWithOptionalUsage(CommandConfig):
 class Config:
     Config: MCD
 
-    SpawnPoint: Vec3
+    SpawnPoint: Position
     Permission: PermissionLevelItem
     CostStrategy: CostStrategy
 
@@ -180,6 +200,20 @@ class Config:
         ...
 
     class TeleportToPlayer(CommandConfigWithCost):
+        ...
+
+    class SendTeleportRequest(CommandConfigWithCost):
+        Timeout: float
+
+        @classmethod
+        def initialize(cls, config: MCD) -> None:
+            super().initialize(config)
+            cls.Timeout = float(config.retrieve("timeout"))
+
+    class AcceptTeleportRequest(CommandConfig):
+        ...
+
+    class DenyTeleportRequest(CommandConfig):
         ...
 
     class TeleportToHome(CommandConfigWithCost):
@@ -222,13 +256,19 @@ class Config:
         cls.Config = PluginConfigPool.require('', f"{h.pkg_name}.yaml", DEFAULT_CONFIG).check()
         # PluginConfigPool.save_all()  # todo save
 
-        cls.SpawnPoint = Vec3(**cls.Config.retrieve("global\\.spawn_point"))
+        sp_rotation = Rotation(**cls.Config.retrieve("global\\.spawn_point\\.rotation"))
+        sp_dimension = cls.Config.retrieve("global\\.spawn_point\\.dimension")
+        sp_coordinate = Vec3(**cls.Config.retrieve("global\\.spawn_point\\.coordinate"))
+        cls.SpawnPoint = Position(sp_coordinate, sp_rotation, sp_dimension)
         cls.Permission = cls.Config.retrieve("global\\.permission")
         cls.CostStrategy = create_cost_strategy(cls.Config.retrieve("global\\.cost_strategy"))
 
         cls.Help.initialize(cls.Config.retrieve("commands\\.help"))
 
         cls.TeleportToPlayer.initialize(cls.Config.retrieve("commands\\.teleport-to-player"))
+        cls.SendTeleportRequest.initialize(cls.Config.retrieve("commands\\.send-teleport-request"))
+        cls.AcceptTeleportRequest.initialize(cls.Config.retrieve("commands\\.accept-teleport-request"))
+        cls.DenyTeleportRequest.initialize(cls.Config.retrieve("commands\\.deny-teleport-request"))
         cls.TeleportToHome.initialize(cls.Config.retrieve("commands\\.teleport-to-home"))
         cls.TeleportToHomeWithName.initialize(cls.Config.retrieve("commands\\.teleport-to-home-with-name"))
         cls.TeleportToWaypoint.initialize(cls.Config.retrieve("commands\\.teleport-to-waypoint"))
@@ -260,6 +300,9 @@ def _use_optional_usage(
 HELP_PERM = _permission_getter(lambda: Config.Help.Permission)
 
 TP2PLAYER_PERM = _permission_getter(lambda: Config.TeleportToPlayer.Permission)
+SEND_TP_REQUEST_PERM = _permission_getter(lambda: Config.SendTeleportRequest.Permission)
+ACCEPT_TP_REQUEST_PERM = _permission_getter(lambda: Config.AcceptTeleportRequest.Permission)
+DENY_TP_REQUEST_PERM = _permission_getter(lambda: Config.DenyTeleportRequest.Permission)
 TP2HOME_PERM = _permission_getter(lambda: Config.TeleportToHome.Permission)
 TP2HOME_WITH_NAME_PERM = _permission_getter(lambda: Config.TeleportToHomeWithName.Permission)
 TP2WAYPOINT_PERM = _permission_getter(lambda: Config.TeleportToWaypoint.Permission)
@@ -273,6 +316,7 @@ LIST_HOME_WITH_PLAYER_PERM = _permission_getter(lambda: Config.ListHomeWithPlaye
 
 # ---- 成本策略 -----------------------------------------------
 TP2PLAYER_STRATEGY = _strategy_getter(lambda: Config.TeleportToPlayer.CostStrategy)
+SEND_TP_REQUEST_STRATEGY = _strategy_getter(lambda: Config.SendTeleportRequest.CostStrategy)
 TP2HOME_STRATEGY = _strategy_getter(lambda: Config.TeleportToHome.CostStrategy)
 TP2HOME_WITH_NAME_STRATEGY = _strategy_getter(lambda: Config.TeleportToHomeWithName.CostStrategy)
 SET_HOME_WITH_NAME_STRATEGY = _strategy_getter(lambda: Config.SetHomeWithName.CostStrategy)
@@ -291,6 +335,9 @@ __all__ = (
     "HELP_PERM",
 
     "TP2PLAYER_PERM",
+    "SEND_TP_REQUEST_PERM",
+    "ACCEPT_TP_REQUEST_PERM",
+    "DENY_TP_REQUEST_PERM",
     "TP2HOME_PERM",
     "TP2HOME_WITH_NAME_PERM",
     "TP2WAYPOINT_PERM",
@@ -304,6 +351,7 @@ __all__ = (
 
     # 成本策略
     "TP2PLAYER_STRATEGY",
+    "SEND_TP_REQUEST_STRATEGY",
     "TP2HOME_STRATEGY",
     "TP2HOME_WITH_NAME_STRATEGY",
     "TP2WAYPOINT_STRATEGY",

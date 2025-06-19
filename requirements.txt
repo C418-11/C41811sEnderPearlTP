@@ -2,3 +2,4 @@ mcdreforged~=2.14.5
 C41811.Config[RuamelYamlSL]
 hjson~=3.1.0
 wrapt~=1.17.2
+mypy-extensions~=1.0.0

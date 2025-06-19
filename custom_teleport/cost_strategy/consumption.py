@@ -46,6 +46,7 @@ class ResourceType(StrEnum):
     EXPERIENCE = "experience"
     ITEMS = "items"
     HUNGER = "hunger"
+    HEALTH = "health"
 
 
 class InsufficientResourcesError(Exception):
@@ -103,6 +104,15 @@ class InsufficientHungerError(QuantitativeInsufficientResourcesError):
 
     def __init__(self, available: float, required: float):
         super().__init__(ResourceType.HUNGER, available, required)
+
+
+class InsufficientHealthError(QuantitativeInsufficientResourcesError):
+    """
+    生命值不足
+    """
+
+    def __init__(self, available: float, required: float):
+        super().__init__(ResourceType.HEALTH, available, required)
 
 
 class PassStrategy(StrEnum):
@@ -362,6 +372,27 @@ class HungerEffectCost(Cost):
         return float(round(cost_value, 7)), commands
 
 
+class HealthCost(Cost):
+    """
+    消耗生命值
+    """
+    # 简陋测试没饥饿值时4秒8.4185036275910米
+    rate: float = field(default=Decimal("0.11878595"))  # 没饥饿值时4秒消耗1生命值，大概每米需要这么多生命值
+    damage_type: str = field(default="void")
+
+    def apply_cost(self, cost_value: float, resources: ResourceState) -> tuple[float, list[Command]]:
+        resource_health: float = resources.health
+        target_health = resource_health - cost_value * self.rate
+
+        if (resource_health < target_health) and self.check_strategy == CheckStrategy.STRICT:
+            raise InsufficientHealthError(resource_health, resource_health - target_health)
+        if self.pass_strategy == PassStrategy.PROPAGATE:
+            cost_value -= (resource_health - target_health) / self.rate
+
+        resources.health = target_health
+        return cost_value, [f"damage @s {resource_health - target_health} {self.damage_type}"]
+
+
 @dataclass
 class CompositeCost(Cost):
     """
@@ -395,6 +426,7 @@ CONSUMPTION_TYPES: dict[str, type[Cost]] = {
     "items": ItemValueCost,
     "composite": CompositeCost,
     "hunger": HungerEffectCost,
+    "health": HealthCost,
 }
 
 __all__ = (
@@ -415,6 +447,7 @@ __all__ = (
     "ExperienceCost",
     "ItemValueCost",
     "HungerEffectCost",
+    "HealthCost",
 
     "CompositeCost",
 
